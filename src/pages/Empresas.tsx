@@ -548,6 +548,9 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
   const [creditoIntData, setCreditoIntData] = useState<any>(null);
   const [creditoIntLoading, setCreditoIntLoading] = useState(false);
   const [creditoIntError, setCreditoIntError] = useState<string | null>(null);
+  const [endividamentoData, setEndividamentoData] = useState<any>(null);
+  const [endividamentoLoading, setEndividamentoLoading] = useState(false);
+  const [endividamentoError, setEndividamentoError] = useState<string | null>(null);
 
   const buscarPortalTransparencia = async () => {
     setPortalLoading(true);
@@ -643,6 +646,23 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
       setCreditoIntError(err.message);
     } finally {
       setCreditoIntLoading(false);
+    }
+  };
+
+  const buscarEndividamentoBancario = async () => {
+    setEndividamentoLoading(true);
+    setEndividamentoError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('buscar-endividamento-bancario', {
+        body: { cnpj: empresa.cnpj, razao_social: empresa.razao_social },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || 'Erro desconhecido');
+      setEndividamentoData(data);
+    } catch (err: any) {
+      setEndividamentoError(err.message);
+    } finally {
+      setEndividamentoLoading(false);
     }
   };
 
@@ -1524,6 +1544,213 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                 {/* Refresh button */}
                 <div className="flex justify-center">
                   <Button variant="ghost" size="sm" onClick={buscarDividas} className="gap-2 text-xs text-muted-foreground">
+                    <Search className="h-3 w-3" />
+                    Buscar novamente
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
+      {/* Endividamento Bancário */}
+      <Card className="border-2 border-amber-500/20 overflow-hidden">
+        {endividamentoData && (
+          <div className={`px-4 py-2 text-sm font-bold flex items-center gap-2 ${
+            endividamentoData.nivel === 'alto' ? 'bg-destructive text-destructive-foreground' :
+            endividamentoData.nivel === 'moderado' ? 'bg-amber-500 text-amber-950' :
+            endividamentoData.nivel === 'baixo' ? 'bg-yellow-400 text-yellow-950' :
+            endividamentoData.nivel === 'minimo' ? 'bg-blue-500 text-white' :
+            'bg-emerald-600 text-white'
+          }`}>
+            {endividamentoData.nivel === 'alto' && <><AlertTriangle className="h-4 w-4" /> ⚠️ {endividamentoData.status}</>}
+            {endividamentoData.nivel === 'moderado' && <><TrendingUp className="h-4 w-4" /> ⚡ {endividamentoData.status}</>}
+            {endividamentoData.nivel === 'baixo' && <><BarChart3 className="h-4 w-4" /> 📊 {endividamentoData.status}</>}
+            {endividamentoData.nivel === 'minimo' && <><Info className="h-4 w-4" /> 📋 {endividamentoData.status}</>}
+            {endividamentoData.nivel === 'nenhum' && <><ShieldCheck className="h-4 w-4" /> ✅ {endividamentoData.status}</>}
+          </div>
+        )}
+
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Landmark className="h-5 w-5 text-amber-600" />
+            Endividamento Bancário
+          </CardTitle>
+          <CardDescription>SCR, empréstimos, financiamentos, debêntures, BNDES e inadimplência bancária</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!endividamentoData && !endividamentoLoading && !endividamentoError && (
+            <Button onClick={buscarEndividamentoBancario} className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
+              <Landmark className="h-4 w-4" />
+              Buscar Endividamento Bancário
+            </Button>
+          )}
+
+          {endividamentoLoading && (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+              <p className="text-sm text-muted-foreground">Buscando endividamento bancário...</p>
+              <div className="flex gap-5 text-xs text-muted-foreground">
+                <span className="animate-pulse">SCR...</span>
+                <span className="animate-pulse" style={{ animationDelay: '0.2s' }}>Empréstimos...</span>
+                <span className="animate-pulse" style={{ animationDelay: '0.4s' }}>Debêntures...</span>
+                <span className="animate-pulse" style={{ animationDelay: '0.6s' }}>BNDES...</span>
+                <span className="animate-pulse" style={{ animationDelay: '0.8s' }}>Inadimplência...</span>
+              </div>
+            </div>
+          )}
+
+          {endividamentoError && (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">Erro: {endividamentoError}</p>
+              <Button variant="outline" size="sm" onClick={buscarEndividamentoBancario}>Tentar novamente</Button>
+            </div>
+          )}
+
+          {endividamentoData && (() => {
+            const categorias = Object.entries(endividamentoData.categorias) as [string, any][];
+            const nivelColor = endividamentoData.nivel === 'alto' ? 'text-destructive' :
+                               endividamentoData.nivel === 'moderado' ? 'text-amber-600' :
+                               endividamentoData.nivel === 'baixo' ? 'text-yellow-600' :
+                               endividamentoData.nivel === 'minimo' ? 'text-blue-600' : 'text-emerald-600';
+            const nivelBg = endividamentoData.nivel === 'alto' ? 'from-destructive/10 to-destructive/5' :
+                            endividamentoData.nivel === 'moderado' ? 'from-amber-500/10 to-amber-500/5' :
+                            endividamentoData.nivel === 'baixo' ? 'from-yellow-500/10 to-yellow-500/5' :
+                            endividamentoData.nivel === 'minimo' ? 'from-blue-500/10 to-blue-500/5' : 'from-emerald-500/10 to-emerald-500/5';
+
+            return (
+              <div className="space-y-6 animate-fade-in">
+                {/* Overview Dashboard */}
+                <div className={`rounded-xl p-4 bg-gradient-to-br ${nivelBg} border`}>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className={`text-3xl font-black ${nivelColor}`}>{endividamentoData.totalRegistros}</div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Registros</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-black text-foreground">{endividamentoData.termosIdentificados?.length || 0}</div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Termos Bancários</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-black text-foreground">{endividamentoData.valoresEncontrados?.length || 0}</div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Valores</p>
+                    </div>
+                    <div className="text-center flex flex-col items-center justify-center">
+                      <Badge className={`text-xs ${
+                        endividamentoData.nivel === 'alto' ? 'bg-destructive/20 text-destructive border-destructive/30' :
+                        endividamentoData.nivel === 'moderado' ? 'bg-amber-100 text-amber-700 border-amber-300' :
+                        endividamentoData.nivel === 'baixo' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                        endividamentoData.nivel === 'minimo' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                        'bg-emerald-100 text-emerald-700 border-emerald-300'
+                      }`}>
+                        {endividamentoData.nivel === 'alto' ? '🔴' : endividamentoData.nivel === 'moderado' ? '🟠' : endividamentoData.nivel === 'baixo' ? '🟡' : endividamentoData.nivel === 'minimo' ? '🔵' : '🟢'} {endividamentoData.nivel.charAt(0).toUpperCase() + endividamentoData.nivel.slice(1)}
+                      </Badge>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-2">Nível</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Termos Bancários Identificados */}
+                {endividamentoData.termosIdentificados && endividamentoData.termosIdentificados.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                      <Landmark className="h-3 w-3" />
+                      Termos Bancários Identificados
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {endividamentoData.termosIdentificados.map((t: string, i: number) => (
+                        <Badge key={i} variant="outline" className="text-xs capitalize border-amber-400/50 text-amber-700 dark:text-amber-400">
+                          🏦 {t}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Valores Encontrados */}
+                {endividamentoData.valoresEncontrados && endividamentoData.valoresEncontrados.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                      <DollarSign className="h-3 w-3" />
+                      Valores Mencionados
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {endividamentoData.valoresEncontrados.map((v: string, i: number) => (
+                        <Badge key={i} variant="outline" className="text-xs border-primary/30 text-primary">
+                          💰 {v}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Category Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {categorias.map(([key, section]) => {
+                    const configMap: Record<string, { icon: any; color: string; borderColor: string; bgColor: string; emoji: string }> = {
+                      scr_operacoes: { icon: <BarChart3 className="h-4 w-4" />, color: 'text-blue-600', borderColor: 'border-blue-300', bgColor: 'bg-blue-50 dark:bg-blue-950/20', emoji: '📊' },
+                      emprestimos_financiamentos: { icon: <DollarSign className="h-4 w-4" />, color: 'text-amber-600', borderColor: 'border-amber-300', bgColor: 'bg-amber-50 dark:bg-amber-950/20', emoji: '💳' },
+                      debentures_titulos: { icon: <FileText className="h-4 w-4" />, color: 'text-purple-600', borderColor: 'border-purple-300', bgColor: 'bg-purple-50 dark:bg-purple-950/20', emoji: '📜' },
+                      credito_rural_bndes: { icon: <Landmark className="h-4 w-4" />, color: 'text-green-600', borderColor: 'border-green-300', bgColor: 'bg-green-50 dark:bg-green-950/20', emoji: '🏛️' },
+                      inadimplencia: { icon: <AlertTriangle className="h-4 w-4" />, color: 'text-red-600', borderColor: 'border-red-300', bgColor: 'bg-red-50 dark:bg-red-950/20', emoji: '⚠️' },
+                    };
+                    const cfg = configMap[key] || { icon: <FileText className="h-4 w-4" />, color: 'text-muted-foreground', borderColor: 'border-border', bgColor: 'bg-muted/20', emoji: '📄' };
+                    const hasItems = section.items && section.items.length > 0;
+
+                    return (
+                      <Card key={key} className={`${cfg.borderColor} border overflow-hidden`}>
+                        <div className={`${cfg.bgColor} px-3 py-2 border-b ${cfg.borderColor}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className={cfg.color}>{cfg.icon}</span>
+                              <span className="text-xs font-bold">{section.label}</span>
+                            </div>
+                            <Badge variant={hasItems ? "default" : "secondary"} className="text-xs">
+                              {section.encontrados}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="p-3">
+                          {section.valores && section.valores.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-3">
+                              {section.valores.slice(0, 4).map((v: string, i: number) => (
+                                <Badge key={i} variant="outline" className={`text-xs ${cfg.color} ${cfg.borderColor}`}>
+                                  {v}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          {hasItems ? (
+                            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                              {section.items.map((item: any, i: number) => (
+                                <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
+                                   className="block text-xs p-2 rounded-md border bg-background hover:bg-accent/50 transition-all hover:shadow-sm group">
+                                  <p className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                                    {cfg.emoji} {item.titulo}
+                                  </p>
+                                  {item.descricao && <p className="text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>}
+                                  <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
+                                    <ExternalLink className="h-2.5 w-2.5" />
+                                    {item.fonte}
+                                  </div>
+                                </a>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-xs text-emerald-600 py-3 justify-center">
+                              <ShieldCheck className="h-4 w-4" />
+                              <span className="font-medium">Nenhum registro</span>
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+
+                <div className="flex justify-center">
+                  <Button variant="ghost" size="sm" onClick={buscarEndividamentoBancario} className="gap-2 text-xs text-muted-foreground">
                     <Search className="h-3 w-3" />
                     Buscar novamente
                   </Button>
