@@ -1625,16 +1625,16 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                 <div className={`rounded-xl p-4 bg-gradient-to-br ${nivelBg} border`}>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div className="text-center">
+                      <div className={`text-2xl font-black ${nivelColor}`}>{endividamentoData.endividamentoTotalFormatado || 'R$ 0'}</div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Endividamento Total Est.</p>
+                    </div>
+                    <div className="text-center">
                       <div className={`text-3xl font-black ${nivelColor}`}>{endividamentoData.totalRegistros}</div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Registros</p>
                     </div>
                     <div className="text-center">
-                      <div className="text-3xl font-black text-foreground">{endividamentoData.termosIdentificados?.length || 0}</div>
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Termos Bancários</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-3xl font-black text-foreground">{endividamentoData.valoresEncontrados?.length || 0}</div>
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Valores</p>
+                      <div className="text-3xl font-black text-foreground">{endividamentoData.topDividas?.length || 0}</div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Dívidas Identificadas</p>
                     </div>
                     <div className="text-center flex flex-col items-center justify-center">
                       <Badge className={`text-xs ${
@@ -1651,7 +1651,54 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                   </div>
                 </div>
 
-                {/* Termos Bancários Identificados */}
+                {/* Resumo por Tipo de Dívida */}
+                {endividamentoData.resumoPorTipo && endividamentoData.resumoPorTipo.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1">
+                      <BarChart3 className="h-3 w-3" />
+                      Endividamento por Tipo
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {endividamentoData.resumoPorTipo.map((r: any, i: number) => (
+                        <div key={i} className="rounded-lg border bg-background p-3 text-center">
+                          <p className="text-lg font-bold text-foreground">{r.totalFormatado}</p>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">{r.tipo}</p>
+                          <Badge variant="secondary" className="text-[10px] mt-1">{r.quantidade} registro{r.quantidade > 1 ? 's' : ''}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Top Dívidas com Valores */}
+                {endividamentoData.topDividas && endividamentoData.topDividas.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1">
+                      <DollarSign className="h-3 w-3" />
+                      Maiores Dívidas Identificadas
+                    </p>
+                    <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                      {endividamentoData.topDividas.map((d: any, i: number) => (
+                        <a key={i} href={d.url} target="_blank" rel="noopener noreferrer"
+                           className="block p-3 rounded-lg border bg-background hover:bg-accent/50 transition-all hover:shadow-sm group">
+                          <div className="flex items-center justify-between mb-1">
+                            <Badge className="text-xs bg-amber-100 text-amber-800 border-amber-300">{d.valorFormatado}</Badge>
+                            <Badge variant="outline" className="text-[10px]">{d.tipo}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
+                            "...{d.contexto}..."
+                          </p>
+                          <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
+                            <ExternalLink className="h-2.5 w-2.5" />
+                            {d.fonte}
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Termos Bancários */}
                 {endividamentoData.termosIdentificados && endividamentoData.termosIdentificados.length > 0 && (
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
@@ -1662,23 +1709,6 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                       {endividamentoData.termosIdentificados.map((t: string, i: number) => (
                         <Badge key={i} variant="outline" className="text-xs capitalize border-amber-400/50 text-amber-700 dark:text-amber-400">
                           🏦 {t}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Valores Encontrados */}
-                {endividamentoData.valoresEncontrados && endividamentoData.valoresEncontrados.length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
-                      <DollarSign className="h-3 w-3" />
-                      Valores Mencionados
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {endividamentoData.valoresEncontrados.map((v: string, i: number) => (
-                        <Badge key={i} variant="outline" className="text-xs border-primary/30 text-primary">
-                          💰 {v}
                         </Badge>
                       ))}
                     </div>
@@ -1714,9 +1744,9 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                         <div className="p-3">
                           {section.valores && section.valores.length > 0 && (
                             <div className="flex flex-wrap gap-1 mb-3">
-                              {section.valores.slice(0, 4).map((v: string, i: number) => (
+                              {section.valores.slice(0, 6).map((v: string, i: number) => (
                                 <Badge key={i} variant="outline" className={`text-xs ${cfg.color} ${cfg.borderColor}`}>
-                                  {v}
+                                  💰 {v}
                                 </Badge>
                               ))}
                             </div>
@@ -1730,6 +1760,16 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                                     {cfg.emoji} {item.titulo}
                                   </p>
                                   {item.descricao && <p className="text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>}
+                                  {/* Valores detalhados do item */}
+                                  {item.valores && item.valores.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {item.valores.slice(0, 3).map((v: string, vi: number) => (
+                                        <Badge key={vi} variant="outline" className={`text-[10px] ${cfg.color}`}>
+                                          {v}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
                                   <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
                                     <ExternalLink className="h-2.5 w-2.5" />
                                     {item.fonte}
@@ -1747,6 +1787,15 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                       </Card>
                     );
                   })}
+                </div>
+
+                {/* Methodology */}
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border text-xs text-muted-foreground">
+                  <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold mb-1">Sobre o Endividamento Bancário</p>
+                    <p>Valores extraídos automaticamente de fontes públicas (demonstrações financeiras, registros CVM, publicações do BNDES, Diário Oficial, etc). Os valores podem incluir duplicidades e devem ser validados. O endividamento total é uma estimativa baseada nos registros encontrados.</p>
+                  </div>
                 </div>
 
                 <div className="flex justify-center">
