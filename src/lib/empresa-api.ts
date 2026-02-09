@@ -63,16 +63,58 @@ export async function fetchAllInstituicoesFinanceiras(): Promise<InstituicaoFina
   }));
 }
 
-// CNPJs de grandes empresas brasileiras para carregar automaticamente
-export const EMPRESAS_POPULARES = [
-  { cnpj: "00000000000191", nome: "Banco do Brasil" },
-  { cnpj: "60746948000112", nome: "Bradesco" },
-  { cnpj: "90400888000142", nome: "Banrisul" },
-  { cnpj: "60701190000104", nome: "Itaú Unibanco" },
-  { cnpj: "00360305000104", nome: "Caixa Econômica" },
-  { cnpj: "33000167000101", nome: "Petrobrás" },
-  { cnpj: "33592510000154", nome: "Vale" },
-  { cnpj: "02558157000162", nome: "Ambev" },
-  { cnpj: "47960950000121", nome: "Magazine Luiza" },
-  { cnpj: "76535764000143", nome: "O Boticário" },
+// Grande lista de CNPJs para busca contínua em background
+export const CNPJS_POOL = [
+  // Bancos
+  "00000000000191", // Banco do Brasil
+  "60746948000112", // Bradesco
+  "90400888000142", // Banrisul
+  "60701190000104", // Itaú Unibanco
+  "00360305000104", // Caixa Econômica
+  "62073200000121", // BNP Paribas
+  "33042953000174", // Citibank
+  "60872504000123", // Santander
+  // Energia & Petróleo
+  "33000167000101", // Petrobras
+  "02328280000197", // Eletrobras
+  "33050196000188", // Petrobras Distribuidora
+  "61695227000193", // Raizen
+  // Mineração & Indústria
+  "33592510000154", // Vale
+  "89850341000160", // Gerdau
+  "33412792000160", // JBS
+  "02916265000160", // BRF
+  "76535764000143", // O Boticário
+  "61186680000174", // Natura
+  // Varejo & Tecnologia
+  "47960950000121", // Magazine Luiza
+  "02558157000162", // Telefônica/Vivo
+  "33041260065290", // Casas Bahia
+  "76430438000142", // Renner
+  "33014556000196", // Americanas
+  "05423963000111", // Localiza
+  "02541982000154", // Raia Drogasil
+  "60850229000147", // Carrefour Brasil
+  // Saúde & Seguros
+  "29309127000179", // Hapvida
+  "92693118000160", // SulAmérica
+  "02685377000162", // Rede D'Or
+  // Construção & Logística
+  "01838723000127", // MRV
+  "07526557000100", // Azul
+  "09296295000160", // Gol
+  "04884082000119", // CCR
+  "61695554000193", // Embraer
+  // Agro & Alimentos
+  "00776574000160", // Marfrig
+  "47508411000156", // Cosan
+  "02800026000181", // Minerva Foods
+  // Financeiras & Fintechs
+  "18236120000158", // Nubank
+  "30306294000145", // Stone
+  "10573521000191", // PagSeguro
+  // Telecomunicações
+  "33530486000129", // Claro/Embratel
+  "76535764000143", // Grupo Boticário
+  "02421421000111", // Tim
 ];

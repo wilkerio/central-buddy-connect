@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { useQuery, useQueries } from "@tanstack/react-query";
-import { fetchCnpj, fetchAllInstituicoesFinanceiras, EMPRESAS_POPULARES, type CnpjData } from "@/lib/empresa-api";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { fetchCnpj, fetchAllInstituicoesFinanceiras, CNPJS_POOL, type CnpjData } from "@/lib/empresa-api";
+import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,22 +8,29 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink } from "lucide-react";
+import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play } from "lucide-react";
 import { Link } from "react-router-dom";
 
-export default function Empresas() {
-  const [selectedEmpresa, setSelectedEmpresa] = useState<CnpjData | null>(null);
-  const [filterIf, setFilterIf] = useState("");
+const SEARCH_INTERVAL = 8000; // 8 seconds between searches
 
-  // Auto-load popular companies
-  const empresaQueries = useQueries({
-    queries: EMPRESAS_POPULARES.map((e) => ({
-      queryKey: ["cnpj", e.cnpj],
-      queryFn: () => fetchCnpj(e.cnpj),
-      staleTime: 10 * 60 * 1000,
-      retry: 1,
-    })),
-  });
+function shuffleArray<T>(arr: T[]): T[] {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+export default function Empresas() {
+  const [empresas, setEmpresas] = useState<CnpjData[]>([]);
+  const [selectedEmpresa, setSelectedEmpresa] = useState<CnpjData | null>(null);
+  const [isRunning, setIsRunning] = useState(true);
+  const [currentSearch, setCurrentSearch] = useState<string | null>(null);
+  const [filterText, setFilterText] = useState("");
+  const [filterIf, setFilterIf] = useState("");
+  const queueRef = useRef<string[]>([]);
+  const fetchedRef = useRef<Set<string>>(new Set());
 
   // Auto-load financial institutions
   const ifQuery = useQuery({
@@ -35,6 +42,50 @@ export default function Empresas() {
   const filteredIfs = ifQuery.data?.filter((item) =>
     !filterIf || item.nomeIf.toLowerCase().includes(filterIf.toLowerCase()) ||
     item.cnpj.includes(filterIf)
+  );
+
+  const fetchNext = useCallback(async () => {
+    if (queueRef.current.length === 0) {
+      queueRef.current = shuffleArray(CNPJS_POOL.filter(c => !fetchedRef.current.has(c)));
+      if (queueRef.current.length === 0) {
+        // All fetched, reset
+        fetchedRef.current.clear();
+        queueRef.current = shuffleArray([...CNPJS_POOL]);
+      }
+    }
+
+    const cnpj = queueRef.current.pop()!;
+    fetchedRef.current.add(cnpj);
+    setCurrentSearch(cnpj);
+
+    try {
+      const data = await fetchCnpj(cnpj);
+      setEmpresas(prev => {
+        const exists = prev.find(e => e.cnpj === data.cnpj);
+        if (exists) return prev;
+        return [data, ...prev];
+      });
+    } catch (err) {
+      console.error("Erro buscando CNPJ:", cnpj, err);
+    }
+    setCurrentSearch(null);
+  }, []);
+
+  useEffect(() => {
+    if (!isRunning) return;
+
+    // Initial fetch immediately
+    fetchNext();
+
+    const interval = setInterval(fetchNext, SEARCH_INTERVAL);
+    return () => clearInterval(interval);
+  }, [isRunning, fetchNext]);
+
+  const filteredEmpresas = empresas.filter(e =>
+    !filterText ||
+    e.razao_social.toLowerCase().includes(filterText.toLowerCase()) ||
+    (e.nome_fantasia && e.nome_fantasia.toLowerCase().includes(filterText.toLowerCase())) ||
+    e.cnpj.includes(filterText.replace(/\D/g, ""))
   );
 
   const formatCurrency = (val: number) =>
@@ -55,11 +106,31 @@ export default function Empresas() {
           <div className="bg-accent rounded-lg p-2">
             <Building2 className="h-5 w-5 text-accent-foreground" />
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="text-lg font-bold text-foreground">Empresas & Capital</h1>
-            <p className="text-xs text-muted-foreground">Dados carregados automaticamente · Receita Federal + BCB</p>
+            <p className="text-xs text-muted-foreground">
+              Busca contínua automática · {empresas.length} empresas encontradas
+            </p>
           </div>
+          <Button
+            variant={isRunning ? "destructive" : "default"}
+            size="sm"
+            onClick={() => setIsRunning(!isRunning)}
+            className="gap-2"
+          >
+            {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            {isRunning ? "Pausar" : "Retomar"}
+          </Button>
         </div>
+        {/* Search status bar */}
+        {isRunning && currentSearch && (
+          <div className="border-t bg-muted/50 px-4 py-1.5">
+            <div className="max-w-6xl mx-auto flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Buscando CNPJ {formatCnpj(currentSearch)}...
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8">
@@ -70,7 +141,7 @@ export default function Empresas() {
             <TabsList className="grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="empresas" className="gap-2">
                 <Building2 className="h-4 w-4" />
-                Grandes Empresas
+                Empresas ({empresas.length})
               </TabsTrigger>
               <TabsTrigger value="if" className="gap-2">
                 <Landmark className="h-4 w-4" />
@@ -78,49 +149,77 @@ export default function Empresas() {
               </TabsTrigger>
             </TabsList>
 
-            {/* Empresas Tab */}
             <TabsContent value="empresas" className="space-y-4">
-              <p className="text-sm text-muted-foreground">Clique em uma empresa para ver detalhes completos</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {empresaQueries.map((query, i) => (
-                  <Card
-                    key={EMPRESAS_POPULARES[i].cnpj}
-                    className="cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/30"
-                    onClick={() => query.data && setSelectedEmpresa(query.data)}
-                  >
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        {EMPRESAS_POPULARES[i].nome}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {query.isLoading ? (
-                        <div className="space-y-2">
-                          <Skeleton className="h-6 w-32" />
-                          <Skeleton className="h-4 w-20" />
-                        </div>
-                      ) : query.error ? (
-                        <p className="text-xs text-destructive">Erro ao carregar</p>
-                      ) : query.data ? (
-                        <>
-                          <p className="text-lg font-bold text-primary">
-                            {formatCurrency(query.data.capital_social)}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant={query.data.situacao_cadastral === "ATIVA" ? "default" : "destructive"} className="text-xs">
-                              {query.data.situacao_cadastral}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">{query.data.porte}</span>
-                          </div>
-                        </>
-                      ) : null}
-                    </CardContent>
-                  </Card>
-                ))}
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Filtrar empresas..."
+                    value={filterText}
+                    onChange={(e) => setFilterText(e.target.value)}
+                    className="pl-9"
+                  />
+                  {filterText && (
+                    <button onClick={() => setFilterText("")} className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <X className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
+                {isRunning && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                    </span>
+                    Buscando...
+                  </div>
+                )}
               </div>
+
+              {filteredEmpresas.length === 0 && empresas.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-muted-foreground">Buscando empresas automaticamente...</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredEmpresas.map((empresa) => (
+                    <Card
+                      key={empresa.cnpj}
+                      className="cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/30 animate-in fade-in slide-in-from-top-2 duration-500"
+                      onClick={() => setSelectedEmpresa(empresa)}
+                    >
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground leading-tight">
+                          {empresa.nome_fantasia || empresa.razao_social}
+                        </CardTitle>
+                        {empresa.nome_fantasia && (
+                          <CardDescription className="text-xs truncate">{empresa.razao_social}</CardDescription>
+                        )}
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-lg font-bold text-primary">
+                          {formatCurrency(empresa.capital_social)}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <Badge variant={empresa.situacao_cadastral === "ATIVA" ? "default" : "destructive"} className="text-xs">
+                            {empresa.situacao_cadastral}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">{empresa.porte}</span>
+                          {empresa.qsa && (
+                            <span className="text-xs text-muted-foreground">{empresa.qsa.length} sócios</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2 truncate">
+                          {empresa.municipio}/{empresa.uf}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </TabsContent>
 
-            {/* IF Tab */}
             <TabsContent value="if" className="space-y-4">
               <div className="relative max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
