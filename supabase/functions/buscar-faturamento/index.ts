@@ -3,7 +3,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Multiplicadores de faturamento por CNAE (faixa do CNAE fiscal -> multiplicador sobre capital social)
+// Multiplicadores de faturamento por CNAE
 const MULTIPLICADORES_CNAE: Record<string, { mult: number; label: string }> = {
   '46': { mult: 8, label: 'Comércio Atacadista' },
   '47': { mult: 10, label: 'Comércio Varejista' },
@@ -25,7 +25,6 @@ const MULTIPLICADORES_CNAE: Record<string, { mult: number; label: string }> = {
   '86': { mult: 4, label: 'Saúde' },
 };
 
-// Multiplicadores por porte
 const MULTIPLICADORES_PORTE: Record<string, number> = {
   'MICRO EMPRESA': 3,
   'EMPRESA DE PEQUENO PORTE': 5,
@@ -41,14 +40,10 @@ function estimarFaturamento(capitalSocial: number, cnae: number, porte: string, 
     ([key]) => porte?.toUpperCase().includes(key)
   )?.[1] || 4;
 
-  // Base: capital social * multiplicador CNAE * fator porte
   const faturamentoAnual = capitalSocial * cnaeInfo.mult * (porteMult / 4);
-
-  // Ajuste por anos de atividade (empresas maduras tendem a faturar mais)
   const maturidadeFator = Math.min(2, 1 + (anosAtividade / 20));
   const faturamentoAjustado = faturamentoAnual * maturidadeFator;
 
-  // Gerar estimativa mensal com variação sazonal
   const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
   const sazonalidade = [0.85, 0.80, 0.95, 0.90, 1.00, 0.95, 0.88, 0.92, 1.05, 1.10, 1.20, 1.40];
 
@@ -81,7 +76,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 1. Calculate estimate
     const anosAtividade = data_inicio_atividade
       ? new Date().getFullYear() - new Date(data_inicio_atividade).getFullYear()
       : 5;
@@ -93,45 +87,60 @@ Deno.serve(async (req) => {
       anosAtividade
     );
 
-    // 2. Search web for real revenue data
+    // Search web for real revenue data using Perplexity
     let dadosWeb: any[] = [];
-    const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+    const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
 
     if (apiKey) {
       const nome = razao_social || '';
-      const query = `"${nome}" faturamento receita receita bruta bilhões milhões anual 2024 2025`;
-
       console.log(`Buscando faturamento para: ${nome}`);
 
       try {
-        const response = await fetch('https://api.firecrawl.dev/v1/search', {
+        const response = await fetch('https://api.perplexity.ai/chat/completions', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ query, limit: 5 }),
+          body: JSON.stringify({
+            model: 'sonar',
+            messages: [
+              { role: 'system', content: 'Você é um analista financeiro. Pesquise e informe dados reais de faturamento e receita da empresa solicitada. Inclua valores em R$ e fontes. Sempre em português.' },
+              { role: 'user', content: `Qual o faturamento/receita bruta anual da empresa "${nome}"? Inclua dados de 2023, 2024 ou 2025 se disponíveis.` },
+            ],
+            temperature: 0.1,
+          }),
         });
 
         const data = await response.json();
 
-        if (response.ok && data.data) {
-          dadosWeb = data.data.map((r: any) => {
-            const text = `${r.title || ''} ${r.description || ''}`;
+        if (response.ok) {
+          const content = data.choices?.[0]?.message?.content || '';
+          const citations = data.citations || [];
 
-            // Extract monetary values
-            const valoresBI = text.match(/R\$\s?[\d.,]+\s?(?:bilh[ãõ]|bi)/gi) || [];
-            const valoresMI = text.match(/R\$\s?[\d.,]+\s?(?:milh[ãõ]|mi)/gi) || [];
-            const valoresSimples = text.match(/R\$\s?[\d.,]+/g) || [];
+          // Extract monetary values
+          const valoresBI = content.match(/R\$\s?[\d.,]+\s?(?:bilh[ãõ]|bi)/gi) || [];
+          const valoresMI = content.match(/R\$\s?[\d.,]+\s?(?:milh[ãõ]|mi)/gi) || [];
+          const valoresSimples = content.match(/R\$\s?[\d.,]+/g) || [];
 
-            return {
-              titulo: r.title || '',
-              descricao: r.description || '',
-              url: r.url || '',
-              fonte: r.url ? new URL(r.url).hostname : '',
-              valoresEncontrados: [...valoresBI, ...valoresMI, ...valoresSimples.slice(0, 3)].slice(0, 5),
-            };
-          }).filter((r: any) => r.valoresEncontrados.length > 0 || r.titulo);
+          dadosWeb = [{
+            titulo: 'Pesquisa Perplexity',
+            descricao: content.substring(0, 500),
+            url: citations[0] || '',
+            fonte: citations[0] ? new URL(citations[0]).hostname : 'perplexity',
+            valoresEncontrados: [...valoresBI, ...valoresMI, ...valoresSimples.slice(0, 3)].slice(0, 5),
+          }];
+
+          // Add individual citations
+          for (const url of citations.slice(0, 4)) {
+            dadosWeb.push({
+              titulo: url,
+              descricao: '',
+              url,
+              fonte: new URL(url).hostname,
+              valoresEncontrados: [],
+            });
+          }
         }
       } catch (err) {
         console.error('Erro buscando faturamento na web:', err);

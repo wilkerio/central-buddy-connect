@@ -3,6 +3,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+async function perplexitySearch(apiKey: string, query: string): Promise<{ content: string; citations: string[] }> {
+  const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'sonar',
+      messages: [
+        { role: 'system', content: 'Você é um analista de comércio exterior brasileiro. Responda de forma estruturada e objetiva. Sempre em português.' },
+        { role: 'user', content: query },
+      ],
+      temperature: 0.1,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error?.message || `Erro ${response.status}`);
+  return { content: data.choices?.[0]?.message?.content || '', citations: data.citations || [] };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -18,10 +40,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+    const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Firecrawl não configurado' }),
+        JSON.stringify({ success: false, error: 'Perplexity não configurado' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -33,17 +55,17 @@ Deno.serve(async (req) => {
       {
         tipo: 'credito_internacional',
         label: 'Crédito Internacional / Trade Finance',
-        query: `"${nome}" crédito internacional trade finance carta crédito financiamento exportação importação BNDES-Exim ACC ACE`,
+        query: `Pesquise sobre crédito internacional, trade finance, carta de crédito, ACC, ACE e BNDES-Exim da empresa "${nome}". Informe operações, valores e instituições envolvidas.`,
       },
       {
         tipo: 'operacoes_cambio',
         label: 'Operações de Câmbio',
-        query: `"${nome}" câmbio operação cambial exportação importação dólar remessa internacional`,
+        query: `Pesquise sobre operações de câmbio, exportação e importação da empresa "${nome}". Informe volumes, países de destino e moedas utilizadas.`,
       },
       {
         tipo: 'relacoes_internacionais',
         label: 'Relações Internacionais',
-        query: `"${nome}" subsidiária filial exterior parceiro internacional joint venture operação global`,
+        query: `Pesquise sobre subsidiárias, filiais no exterior, joint ventures e operações globais da empresa "${nome}". Informe países e parcerias internacionais.`,
       },
     ];
 
@@ -51,53 +73,37 @@ Deno.serve(async (req) => {
     let indicadoresPositivos = 0;
     let evidencias: string[] = [];
 
+    const keywords = [
+      'carta de crédito', 'letter of credit', 'trade finance',
+      'acc', 'ace', 'bndes-exim', 'financiamento à exportação',
+      'crédito internacional', 'câmbio', 'exportação', 'importação',
+      'subsidiária', 'filial no exterior', 'operação internacional',
+    ];
+
     await Promise.all(
       searches.map(async (search) => {
         try {
-          const response = await fetch('https://api.firecrawl.dev/v1/search', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ query: search.query, limit: 5 }),
-          });
+          const { content, citations } = await perplexitySearch(apiKey, search.query);
 
-          const data = await response.json();
-
-          if (response.ok) {
-            const items = (data.data || []).map((r: any) => ({
-              titulo: r.title || 'Sem título',
-              descricao: r.description || '',
-              url: r.url || '',
-              fonte: r.url ? new URL(r.url).hostname : 'desconhecida',
-            }));
-
-            // Check for strong indicators
-            for (const item of items) {
-              const text = `${item.titulo} ${item.descricao}`.toLowerCase();
-              const keywords = [
-                'carta de crédito', 'letter of credit', 'trade finance',
-                'acc', 'ace', 'bndes-exim', 'financiamento à exportação',
-                'crédito internacional', 'câmbio', 'exportação', 'importação',
-                'subsidiária', 'filial no exterior', 'operação internacional',
-              ];
-              for (const kw of keywords) {
-                if (text.includes(kw) && !evidencias.includes(kw)) {
-                  evidencias.push(kw);
-                  indicadoresPositivos++;
-                }
-              }
+          const textLower = content.toLowerCase();
+          for (const kw of keywords) {
+            if (textLower.includes(kw) && !evidencias.includes(kw)) {
+              evidencias.push(kw);
+              indicadoresPositivos++;
             }
-
-            results[search.tipo] = {
-              label: search.label,
-              encontrados: items.length,
-              items,
-            };
-          } else {
-            results[search.tipo] = { label: search.label, encontrados: 0, items: [] };
           }
+
+          results[search.tipo] = {
+            label: search.label,
+            encontrados: citations.length,
+            items: citations.map((url: string) => ({
+              titulo: url,
+              descricao: '',
+              url,
+              fonte: new URL(url).hostname,
+            })),
+            resumo: content,
+          };
         } catch (err) {
           console.error(`Error searching ${search.tipo}:`, err);
           results[search.tipo] = { label: search.label, encontrados: 0, items: [] };
@@ -105,7 +111,6 @@ Deno.serve(async (req) => {
       })
     );
 
-    // Determine status
     const totalResultados = Object.values(results).reduce((a: number, s: any) => a + s.encontrados, 0);
     let status: string;
     let confianca: string;
