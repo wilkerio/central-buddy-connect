@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 
@@ -532,7 +532,27 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
   formatCnpj: (v: string) => string;
 }) {
   const credito = calcularPotencialCreditoInternacional(empresa);
-  
+  const [portalData, setPortalData] = useState<any>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
+
+  const buscarPortalTransparencia = async () => {
+    setPortalLoading(true);
+    setPortalError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('portal-transparencia', {
+        body: { cnpj: empresa.cnpj },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || 'Erro desconhecido');
+      setPortalData(data);
+    } catch (err: any) {
+      setPortalError(err.message);
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Score de Crédito Internacional - Destaque */}
@@ -674,6 +694,101 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
               <p className="text-sm text-muted-foreground">Nenhum contato disponível na Receita Federal.</p>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Portal da Transparência */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Scale className="h-4 w-4" />
+            Portal da Transparência
+          </CardTitle>
+          <CardDescription>Contratos, licitações, valores recebidos e sanções do governo federal</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!portalData && !portalLoading && !portalError && (
+            <Button onClick={buscarPortalTransparencia} className="gap-2">
+              <Search className="h-4 w-4" />
+              Buscar no Portal da Transparência
+            </Button>
+          )}
+
+          {portalLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Buscando dados no Portal da Transparência...
+            </div>
+          )}
+
+          {portalError && (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">Erro: {portalError}</p>
+              <Button variant="outline" size="sm" onClick={buscarPortalTransparencia}>Tentar novamente</Button>
+            </div>
+          )}
+
+          {portalData && portalData.resumo && (
+            <div className="space-y-4">
+              {/* Contratos */}
+              {portalData.resumo.contratos.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <FileText className="h-3 w-3" />
+                    Contratos e Licitações ({portalData.resumo.contratos.length})
+                  </p>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {portalData.resumo.contratos.map((item: string, i: number) => (
+                      <p key={i} className="text-xs text-foreground p-2 rounded border bg-muted/20">{item}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Valores Recebidos */}
+              {portalData.resumo.valoresRecebidos.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <DollarSign className="h-3 w-3" />
+                    Valores Recebidos ({portalData.resumo.valoresRecebidos.length})
+                  </p>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {portalData.resumo.valoresRecebidos.map((item: string, i: number) => (
+                      <p key={i} className="text-xs text-foreground p-2 rounded border bg-muted/20">{item}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sanções */}
+              {portalData.resumo.sancoes.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wider flex items-center gap-1 text-destructive">
+                    <AlertTriangle className="h-3 w-3" />
+                    ⚠️ Sanções e Penalidades ({portalData.resumo.sancoes.length})
+                  </p>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {portalData.resumo.sancoes.map((item: string, i: number) => (
+                      <p key={i} className="text-xs text-destructive p-2 rounded border border-destructive/30 bg-destructive/5">{item}</p>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-green-600">
+                  <ShieldCheck className="h-4 w-4" />
+                  Nenhuma sanção encontrada
+                </div>
+              )}
+
+              {/* Link direto */}
+              <a href={portalData.url} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" size="sm" className="gap-2 mt-2">
+                  <ExternalLink className="h-3 w-3" />
+                  Ver no Portal da Transparência
+                </Button>
+              </a>
+            </div>
+          )}
         </CardContent>
       </Card>
 
