@@ -120,6 +120,8 @@ export default function InternacionalizacaoAnalise() {
 
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [calculating, setCalculating] = useState(false);
+  const [cvmData, setCvmData] = useState<any>(null);
+  const [sancoesData, setSancoesData] = useState<any>(null);
 
   const searchCnpj = async () => {
     const cleaned = cnpjInput.replace(/\D/g, '');
@@ -140,57 +142,114 @@ export default function InternacionalizacaoAnalise() {
   };
 
   const autoFetchData = async (emp: CnpjData) => {
-    // Fetch faturamento estimate
-    try {
-      const { data } = await supabase.functions.invoke('buscar-faturamento', {
-        body: {
-          cnpj: emp.cnpj, razao_social: emp.razao_social,
-          capital_social: emp.capital_social, cnae_fiscal: emp.cnae_fiscal,
-          porte: emp.porte, data_inicio_atividade: emp.data_inicio_atividade,
-        },
-      });
-      if (data?.success && data.estimativa) {
-        setFinancial(prev => ({
-          ...prev,
-          faturamento_anual: data.estimativa.anual,
-          receita_bruta_anual: data.estimativa.anual,
-          receita_liquida_anual: Math.round(data.estimativa.anual * 0.85),
-          lucro_bruto: Math.round(data.estimativa.anual * 0.3),
-          ebitda: Math.round(data.estimativa.anual * 0.15),
-          lucro_liquido: Math.round(data.estimativa.anual * 0.08),
-          ativo_total: Math.round(data.estimativa.anual * 1.2),
-          patrimonio_liquido: Math.round(data.estimativa.anual * 0.4),
-          passivo_total: Math.round(data.estimativa.anual * 0.8),
-          passivo_circulante: Math.round(data.estimativa.anual * 0.3),
-          ativo_circulante: Math.round(data.estimativa.anual * 0.5),
-          margem_bruta: 30,
-          margem_liquida: 8,
-          roe: 20,
-          roa: 7,
-          liquidez_corrente: 1.67,
-          endividamento_total: 0.67,
-        }));
-      }
-    } catch { /* silent */ }
+    // Fetch all data sources in parallel
+    const fetchFaturamento = async () => {
+      try {
+        const { data } = await supabase.functions.invoke('buscar-faturamento', {
+          body: {
+            cnpj: emp.cnpj, razao_social: emp.razao_social,
+            capital_social: emp.capital_social, cnae_fiscal: emp.cnae_fiscal,
+            porte: emp.porte, data_inicio_atividade: emp.data_inicio_atividade,
+          },
+        });
+        if (data?.success && data.estimativa) {
+          setFinancial(prev => ({
+            ...prev,
+            faturamento_anual: data.estimativa.anual,
+            receita_bruta_anual: data.estimativa.anual,
+            receita_liquida_anual: Math.round(data.estimativa.anual * 0.85),
+            lucro_bruto: Math.round(data.estimativa.anual * 0.3),
+            ebitda: Math.round(data.estimativa.anual * 0.15),
+            lucro_liquido: Math.round(data.estimativa.anual * 0.08),
+            ativo_total: Math.round(data.estimativa.anual * 1.2),
+            patrimonio_liquido: Math.round(data.estimativa.anual * 0.4),
+            passivo_total: Math.round(data.estimativa.anual * 0.8),
+            passivo_circulante: Math.round(data.estimativa.anual * 0.3),
+            ativo_circulante: Math.round(data.estimativa.anual * 0.5),
+            margem_bruta: 30,
+            margem_liquida: 8,
+            roe: 20,
+            roa: 7,
+            liquidez_corrente: 1.67,
+            endividamento_total: 0.67,
+          }));
+        }
+      } catch { /* silent */ }
+    };
 
-    // Fetch garantias
-    try {
-      const { data } = await supabase.functions.invoke('buscar-garantias', {
-        body: { cnpj: emp.cnpj, razao_social: emp.razao_social, capital_social: emp.capital_social, porte: emp.porte },
-      });
-      if (data?.success && data.capacidade_garantia) {
-        setCollaterals(prev => ({
-          ...prev,
-          imoveis: [{
-            tipo: 'industrial',
-            valor_avaliacao: data.capacidade_garantia.valor_estimado || 0,
-            valor_mercado: data.capacidade_garantia.valor_estimado || 0,
-            livre_onus: true,
-            localizacao: emp.municipio + '/' + emp.uf,
-          }],
-        }));
-      }
-    } catch { /* silent */ }
+    const fetchGarantias = async () => {
+      try {
+        const { data } = await supabase.functions.invoke('buscar-garantias', {
+          body: { cnpj: emp.cnpj, razao_social: emp.razao_social, capital_social: emp.capital_social, porte: emp.porte },
+        });
+        if (data?.success && data.capacidade_garantia) {
+          setCollaterals(prev => ({
+            ...prev,
+            imoveis: [{
+              tipo: 'industrial',
+              valor_avaliacao: data.capacidade_garantia.valor_estimado || 0,
+              valor_mercado: data.capacidade_garantia.valor_estimado || 0,
+              livre_onus: true,
+              localizacao: emp.municipio + '/' + emp.uf,
+            }],
+          }));
+        }
+      } catch { /* silent */ }
+    };
+
+    const fetchCVM = async () => {
+      try {
+        const { data } = await supabase.functions.invoke('buscar-cvm', {
+          body: { cnpj: emp.cnpj, razao_social: emp.razao_social },
+        });
+        if (data?.success) {
+          // Override financial data with CVM real data if available
+          if (data.dados_financeiros) {
+            const df = data.dados_financeiros;
+            setFinancial(prev => ({
+              ...prev,
+              ...(df.receita_liquida > 0 && { receita_liquida_anual: df.receita_liquida, receita_bruta_anual: Math.round(df.receita_liquida * 1.18), faturamento_anual: Math.round(df.receita_liquida * 1.18) }),
+              ...(df.lucro_liquido !== 0 && { lucro_liquido: df.lucro_liquido }),
+              ...(df.ebitda > 0 && { ebitda: df.ebitda }),
+              ...(df.patrimonio_liquido > 0 && { patrimonio_liquido: df.patrimonio_liquido }),
+              ...(df.ativo_total > 0 && { ativo_total: df.ativo_total }),
+            }));
+          }
+          // Auto-fill international governance if CVM registered
+          if (data.is_registrada_cvm) {
+            setIntl(prev => ({
+              ...prev,
+              registro_bolsa_valores: data.listada_b3 || prev.registro_bolsa_valores,
+              auditoria_internacional: true,
+              governanca_internacional: true,
+              ...(data.rating && { possui_rating: true, agencia_rating: data.rating.agencia, nota_rating: data.rating.nota }),
+            }));
+          }
+          setCvmData(data);
+        }
+      } catch { /* silent */ }
+    };
+
+    const fetchSancoes = async () => {
+      try {
+        const { data } = await supabase.functions.invoke('buscar-sancoes-gov', {
+          body: { cnpj: emp.cnpj, razao_social: emp.razao_social },
+        });
+        if (data?.success) {
+          setSancoesData(data);
+          // If sanctions found, reduce score
+          if (data.total_sancoes > 0) {
+            setLiabilities(prev => ({
+              ...prev,
+              score_credito_serasa: Math.max(0, (prev.score_credito_serasa || 700) - (data.total_sancoes * 150)),
+            }));
+          }
+        }
+      } catch { /* silent */ }
+    };
+
+    // Run all fetches in parallel
+    await Promise.all([fetchFaturamento(), fetchGarantias(), fetchCVM(), fetchSancoes()]);
   };
 
   const calculateScore = async () => {
@@ -316,6 +375,42 @@ export default function InternacionalizacaoAnalise() {
                   CNPJ: {empresa.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")} · {empresa.porte} · {empresa.municipio}/{empresa.uf}
                 </CardDescription>
               </CardHeader>
+              <CardContent className="flex flex-wrap gap-2">
+                {cvmData && (
+                  cvmData.is_registrada_cvm ? (
+                    <Badge className="bg-primary/10 text-primary border-primary/20">
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> CVM Registrada {cvmData.categoria_cvm ? `(Cat. ${cvmData.categoria_cvm})` : ''}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground">
+                      CVM: Não registrada
+                    </Badge>
+                  )
+                )}
+                {cvmData?.listada_b3 && (
+                  <Badge className="bg-primary/10 text-primary border-primary/20">
+                    <TrendingUp className="h-3 w-3 mr-1" /> Listada B3
+                  </Badge>
+                )}
+                {cvmData?.rating && (
+                  <Badge className="bg-primary/10 text-primary border-primary/20">
+                    Rating: {cvmData.rating.nota} ({cvmData.rating.agencia})
+                  </Badge>
+                )}
+                {sancoesData && (
+                  sancoesData.total_sancoes === 0 ? (
+                    <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Sem sanções governamentais
+                    </Badge>
+                  ) : (
+                    <Badge variant="destructive">
+                      <AlertTriangle className="h-3 w-3 mr-1" /> {sancoesData.total_sancoes} sanção(ões) encontrada(s)
+                    </Badge>
+                  )
+                )}
+                {!cvmData && <Badge variant="outline" className="text-muted-foreground"><Loader2 className="h-3 w-3 mr-1 animate-spin" /> CVM...</Badge>}
+                {!sancoesData && <Badge variant="outline" className="text-muted-foreground"><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Sanções...</Badge>}
+              </CardContent>
             </Card>
 
             <Tabs defaultValue="financeiro" className="space-y-4">
@@ -616,6 +711,46 @@ export default function InternacionalizacaoAnalise() {
                         </div>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Sanctions Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-primary" /> Sanções Governamentais (CEIS/CNEP/CEPIM)
+                    </CardTitle>
+                    <CardDescription>Dados obtidos automaticamente do Portal da Transparência</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {!sancoesData ? (
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Consultando bases governamentais...
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {Object.entries(sancoesData.sancoes || {}).map(([key, sancao]: [string, any]) => (
+                          <div key={key} className={`p-3 rounded-lg border ${sancao.tem_registro ? 'border-destructive/30 bg-destructive/5' : 'border-border bg-muted/30'}`}>
+                            <div className="flex items-center gap-2 mb-1">
+                              {sancao.tem_registro ? (
+                                <XCircle className="h-4 w-4 text-destructive" />
+                              ) : (
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                              )}
+                              <span className="text-sm font-medium">{sancao.label}</span>
+                            </div>
+                            {sancao.resumo && (
+                              <p className="text-xs text-muted-foreground line-clamp-2 ml-6">{sancao.resumo.substring(0, 200)}</p>
+                            )}
+                          </div>
+                        ))}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant={sancoesData.risco_sancoes === 'baixo' ? 'outline' : 'destructive'}>
+                            Risco: {sancoesData.risco_sancoes?.toUpperCase()}
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
