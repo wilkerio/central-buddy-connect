@@ -512,13 +512,33 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                     <p className="font-medium text-foreground">{socio.nome_socio}</p>
                     <p className="text-xs text-muted-foreground">{socio.qualificacao_socio}</p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2">
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(socio.nome_socio + " " + (empresa.nome_fantasia || empresa.razao_social) + " email")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                        <Mail className="h-3 w-3" />
+                        Buscar Email
+                      </Button>
+                    </a>
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(socio.nome_socio + " " + (empresa.nome_fantasia || empresa.razao_social) + " whatsapp telefone contato")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs text-green-700">
+                        <MessageCircle className="h-3 w-3" />
+                        Buscar WhatsApp
+                      </Button>
+                    </a>
                     <a
                       href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(socio.nome_socio)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <Button size="sm" variant="outline" className="gap-1.5 text-xs text-blue-700 border-blue-200 hover:bg-blue-50">
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs">
                         <ExternalLink className="h-3 w-3" />
                         LinkedIn
                       </Button>
@@ -528,13 +548,13 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <Button size="sm" variant="outline" className="gap-1.5 text-xs text-pink-600 border-pink-200 hover:bg-pink-50">
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs">
                         <ExternalLink className="h-3 w-3" />
                         Instagram
                       </Button>
                     </a>
                     <a
-                      href={`https://www.google.com/search?q=${encodeURIComponent(socio.nome_socio + " " + (empresa.nome_fantasia || empresa.razao_social) + " contato email")}`}
+                      href={`https://www.google.com/search?q=${encodeURIComponent(socio.nome_socio + " " + (empresa.nome_fantasia || empresa.razao_social))}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
