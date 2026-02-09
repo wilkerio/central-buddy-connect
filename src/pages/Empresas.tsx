@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, Handshake, Star, Briefcase, Award } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 
@@ -578,37 +578,121 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
             </div>
           </div>
 
-          {/* Decisores que podem fechar crédito */}
-          {empresa.qsa && empresa.qsa.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
-                <ShieldCheck className="h-3 w-3" />
-                PESSOAS QUE PODEM FECHAR CRÉDITO INTERNACIONAL
+          {/* Decisores resumo */}
+          {credito.decisores > 0 && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900">
+              <ShieldCheck className="h-5 w-5 text-green-600" />
+              <p className="text-sm font-medium text-green-800 dark:text-green-300">
+                {credito.decisores} pessoa{credito.decisores > 1 ? "s" : ""} com poder para fechar crédito internacional nesta empresa
               </p>
-              <div className="space-y-2">
-                {empresa.qsa.map((socio, i) => {
-                  const qualificacoesDecisoras = ["ADMINISTRADOR", "DIRETOR", "PRESIDENTE", "SÓCIO-ADMINISTRADOR", "PROCURADOR"];
-                  const isDecisor = qualificacoesDecisoras.some(q => socio.qualificacao_socio?.toUpperCase().includes(q));
-                  return (
-                    <div key={i} className={`flex items-center justify-between p-2 rounded-md border ${isDecisor ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-900" : "bg-muted/30"}`}>
-                      <div className="flex items-center gap-2">
-                        {isDecisor ? <ShieldCheck className="h-4 w-4 text-green-600" /> : <AlertTriangle className="h-4 w-4 text-muted-foreground" />}
-                        <div>
-                          <p className={`text-sm font-medium ${isDecisor ? "text-green-800 dark:text-green-300" : "text-muted-foreground"}`}>{socio.nome_socio}</p>
-                          <p className="text-[10px] text-muted-foreground">{socio.qualificacao_socio}</p>
-                        </div>
-                      </div>
-                      <Badge variant={isDecisor ? "default" : "secondary"} className="text-[10px]">
-                        {isDecisor ? "✅ Pode fechar" : "Sem poder"}
-                      </Badge>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* POTENTIAL PARTNERS - Seção dedicada */}
+      {empresa.qsa && empresa.qsa.length > 0 && (
+        <Card className="border-2 border-amber-200 dark:border-amber-900 bg-gradient-to-br from-card to-amber-50/30 dark:to-amber-950/10">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Handshake className="h-5 w-5 text-amber-600" />
+              Potential Partners — Crédito Internacional
+            </CardTitle>
+            <CardDescription>
+              Pessoas nesta empresa que podem fechar um crédito internacional e por quê
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {empresa.qsa.map((socio, i) => {
+              const qualUpper = socio.qualificacao_socio?.toUpperCase() || "";
+              const isAdmin = qualUpper.includes("ADMINISTRADOR") || qualUpper.includes("SÓCIO-ADMINISTRADOR");
+              const isDiretor = qualUpper.includes("DIRETOR");
+              const isPresidente = qualUpper.includes("PRESIDENTE");
+              const isProcurador = qualUpper.includes("PROCURADOR");
+              const isDecisor = isAdmin || isDiretor || isPresidente || isProcurador;
+
+              // Gerar razões específicas de POR QUE essa pessoa pode fechar
+              const razoes: { icon: React.ReactNode; texto: string }[] = [];
+
+              if (isPresidente) razoes.push({ icon: <Award className="h-3 w-3" />, texto: "Presidente — poder total de decisão sobre crédito e operações" });
+              if (isDiretor) razoes.push({ icon: <Briefcase className="h-3 w-3" />, texto: "Diretor — autoridade para aprovar linhas de crédito" });
+              if (isAdmin) razoes.push({ icon: <ShieldCheck className="h-3 w-3" />, texto: "Administrador — representa legalmente a empresa em contratos internacionais" });
+              if (isProcurador) razoes.push({ icon: <ExternalLink className="h-3 w-3" />, texto: "Procurador — poderes delegados para assinar em nome da empresa" });
+
+              if (empresa.capital_social >= 10_000_000) razoes.push({ icon: <TrendingUp className="h-3 w-3" />, texto: `Empresa com capital de ${formatCurrency(empresa.capital_social)} — capacidade financeira sólida` });
+              if (socio.capital_social_socio > 0) razoes.push({ icon: <Star className="h-3 w-3" />, texto: `Capital do sócio: ${formatCurrency(socio.capital_social_socio)}` });
+
+              if (!isDecisor) {
+                razoes.push({ icon: <AlertTriangle className="h-3 w-3" />, texto: "Sem qualificação decisória identificada — pode precisar de autorização de outro sócio" });
+              }
+
+              return (
+                <div key={i} className={`rounded-xl border-2 p-4 space-y-3 transition-all ${
+                  isDecisor 
+                    ? "border-green-300 bg-green-50/50 dark:bg-green-950/20 dark:border-green-800 shadow-sm" 
+                    : "border-muted bg-muted/20"
+                }`}>
+                  {/* Header do partner */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`rounded-full p-2 ${isDecisor ? "bg-green-100 dark:bg-green-900" : "bg-muted"}`}>
+                        {isDecisor ? <Star className="h-5 w-5 text-amber-500" /> : <Users className="h-5 w-5 text-muted-foreground" />}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-foreground">{socio.nome_socio}</p>
+                        <p className="text-xs text-muted-foreground">{socio.qualificacao_socio}</p>
+                      </div>
+                    </div>
+                    <Badge className={`text-xs ${
+                      isDecisor 
+                        ? "bg-green-600 text-white border-green-700" 
+                        : "bg-muted text-muted-foreground"
+                    }`}>
+                      {isDecisor ? "✅ Partner Potencial" : "❌ Sem poder decisório"}
+                    </Badge>
+                  </div>
+
+                  {/* Por que pode/não pode fechar */}
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {isDecisor ? "POR QUE PODE FECHAR CRÉDITO INTERNACIONAL:" : "OBSERVAÇÃO:"}
+                    </p>
+                    {razoes.map((r, j) => (
+                      <div key={j} className="flex items-start gap-2 text-xs">
+                        <span className={`mt-0.5 flex-shrink-0 ${isDecisor ? "text-green-600" : "text-muted-foreground"}`}>
+                          {r.icon}
+                        </span>
+                        <span className={isDecisor ? "text-foreground" : "text-muted-foreground"}>{r.texto}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Ações de contato rápido */}
+                  {isDecisor && (
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-green-200 dark:border-green-800">
+                      <a href={`https://www.google.com/search?q=${encodeURIComponent(socio.nome_socio + " " + (empresa.nome_fantasia || empresa.razao_social) + " email")}`} target="_blank" rel="noopener noreferrer">
+                        <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7">
+                          <Mail className="h-3 w-3" /> Email
+                        </Button>
+                      </a>
+                      <a href={`https://www.google.com/search?q=${encodeURIComponent(socio.nome_socio + " " + (empresa.nome_fantasia || empresa.razao_social) + " whatsapp telefone")}`} target="_blank" rel="noopener noreferrer">
+                        <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7 text-green-700">
+                          <MessageCircle className="h-3 w-3" /> WhatsApp
+                        </Button>
+                      </a>
+                      <a href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(socio.nome_socio)}`} target="_blank" rel="noopener noreferrer">
+                        <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7">
+                          <ExternalLink className="h-3 w-3" /> LinkedIn
+                        </Button>
+                      </a>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader>
           <div className="flex items-start gap-3">
