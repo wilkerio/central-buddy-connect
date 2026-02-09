@@ -1,1 +1,4 @@
 project_id = "wiaqvtjdutsriusyxeej"
+
+[functions.calculate-internationalization-score]
+verify_jwt = false
