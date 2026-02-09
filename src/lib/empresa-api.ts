@@ -47,8 +47,8 @@ export interface InstituicaoFinanceira {
   tipoInstituicao: string;
 }
 
-export async function searchInstituicoesFinanceiras(nome: string): Promise<InstituicaoFinanceira[]> {
-  const url = `https://olinda.bcb.gov.br/olinda/servico/informes_ifdata/versao/v1/odata/IfDataCadastro?$filter=contains(NomeInstituicao,'${encodeURIComponent(nome)}')&$top=20&$format=json`;
+export async function fetchAllInstituicoesFinanceiras(): Promise<InstituicaoFinanceira[]> {
+  const url = `https://olinda.bcb.gov.br/olinda/servico/informes_ifdata/versao/v1/odata/IfDataCadastro?$top=100&$orderby=NomeInstituicao&$format=json`;
 
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Erro ao buscar IFs: ${response.status}`);
@@ -62,3 +62,17 @@ export async function searchInstituicoesFinanceiras(nome: string): Promise<Insti
     tipoInstituicao: item.TipoInstituicao,
   }));
 }
+
+// CNPJs de grandes empresas brasileiras para carregar automaticamente
+export const EMPRESAS_POPULARES = [
+  { cnpj: "00000000000191", nome: "Banco do Brasil" },
+  { cnpj: "60746948000112", nome: "Bradesco" },
+  { cnpj: "90400888000142", nome: "Banrisul" },
+  { cnpj: "60701190000104", nome: "Itaú Unibanco" },
+  { cnpj: "00360305000104", nome: "Caixa Econômica" },
+  { cnpj: "33000167000101", nome: "Petrobrás" },
+  { cnpj: "33592510000154", nome: "Vale" },
+  { cnpj: "02558157000162", nome: "Ambev" },
+  { cnpj: "47960950000121", nome: "Magazine Luiza" },
+  { cnpj: "76535764000143", nome: "O Boticário" },
+];
