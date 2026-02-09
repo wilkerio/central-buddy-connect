@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign } from "lucide-react";
+import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign, Gavel, Ban, Receipt } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 
@@ -535,6 +535,9 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
   const [portalData, setPortalData] = useState<any>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
+  const [dividasData, setDividasData] = useState<any>(null);
+  const [dividasLoading, setDividasLoading] = useState(false);
+  const [dividasError, setDividasError] = useState<string | null>(null);
 
   const buscarPortalTransparencia = async () => {
     setPortalLoading(true);
@@ -550,6 +553,23 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
       setPortalError(err.message);
     } finally {
       setPortalLoading(false);
+    }
+  };
+
+  const buscarDividas = async () => {
+    setDividasLoading(true);
+    setDividasError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('buscar-dividas', {
+        body: { cnpj: empresa.cnpj, razao_social: empresa.razao_social },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || 'Erro desconhecido');
+      setDividasData(data.dividas);
+    } catch (err: any) {
+      setDividasError(err.message);
+    } finally {
+      setDividasLoading(false);
     }
   };
 
@@ -787,6 +807,93 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                   Ver no Portal da Transparência
                 </Button>
               </a>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Dívidas e Pendências */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Receipt className="h-4 w-4" />
+            Dívidas & Pendências
+          </CardTitle>
+          <CardDescription>Dívida ativa, protestos em cartório e processos judiciais</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!dividasData && !dividasLoading && !dividasError && (
+            <Button onClick={buscarDividas} className="gap-2">
+              <Search className="h-4 w-4" />
+              Buscar Dívidas e Pendências
+            </Button>
+          )}
+
+          {dividasLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Buscando dívidas e pendências...
+            </div>
+          )}
+
+          {dividasError && (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">Erro: {dividasError}</p>
+              <Button variant="outline" size="sm" onClick={buscarDividas}>Tentar novamente</Button>
+            </div>
+          )}
+
+          {dividasData && (
+            <div className="space-y-4">
+              {Object.entries(dividasData).map(([key, section]: [string, any]) => {
+                const icon = key === 'divida_ativa' ? <DollarSign className="h-3 w-3" /> :
+                             key === 'protestos' ? <Ban className="h-3 w-3" /> :
+                             <Gavel className="h-3 w-3" />;
+                const hasItems = section.items && section.items.length > 0;
+
+                return (
+                  <div key={key} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                        {icon}
+                        {section.label} ({section.encontrados})
+                      </p>
+                      {section.valores && section.valores.length > 0 && (
+                        <div className="flex gap-1">
+                          {section.valores.slice(0, 3).map((v: string, i: number) => (
+                            <Badge key={i} variant="destructive" className="text-xs">{v}</Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {hasItems ? (
+                      <div className="space-y-1 max-h-48 overflow-y-auto">
+                        {section.items.map((item: any, i: number) => (
+                          <a
+                            key={i}
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block text-xs p-2 rounded border bg-muted/20 hover:bg-accent transition-colors"
+                          >
+                            <p className="font-medium text-foreground">{item.titulo}</p>
+                            {item.descricao && (
+                              <p className="text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground mt-1">{item.fonte}</p>
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-green-600 p-2 rounded border bg-green-50 dark:bg-green-950/30">
+                        <ShieldCheck className="h-3 w-3" />
+                        Nenhum registro encontrado
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>
