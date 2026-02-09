@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign, Gavel, Ban, Receipt, BarChart3, Info } from "lucide-react";
+import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign, Gavel, Ban, Receipt, BarChart3, Info, Home, Car, Briefcase, Shield } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -542,6 +542,9 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
   const [faturamentoData, setFaturamentoData] = useState<any>(null);
   const [faturamentoLoading, setFaturamentoLoading] = useState(false);
   const [faturamentoError, setFaturamentoError] = useState<string | null>(null);
+  const [garantiasData, setGarantiasData] = useState<any>(null);
+  const [garantiasLoading, setGarantiasLoading] = useState(false);
+  const [garantiasError, setGarantiasError] = useState<string | null>(null);
 
   const buscarPortalTransparencia = async () => {
     setPortalLoading(true);
@@ -598,6 +601,28 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
       setFaturamentoError(err.message);
     } finally {
       setFaturamentoLoading(false);
+    }
+  };
+
+  const buscarGarantias = async () => {
+    setGarantiasLoading(true);
+    setGarantiasError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('buscar-garantias', {
+        body: {
+          cnpj: empresa.cnpj,
+          razao_social: empresa.razao_social,
+          capital_social: empresa.capital_social,
+          porte: empresa.porte,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || 'Erro desconhecido');
+      setGarantiasData(data);
+    } catch (err: any) {
+      setGarantiasError(err.message);
+    } finally {
+      setGarantiasLoading(false);
     }
   };
 
@@ -1173,6 +1198,200 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                 {/* Refresh button */}
                 <div className="flex justify-center">
                   <Button variant="ghost" size="sm" onClick={buscarDividas} className="gap-2 text-xs text-muted-foreground">
+                    <Search className="h-3 w-3" />
+                    Buscar novamente
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
+      {/* Garantias & Patrimônio */}
+      <Card className="border-2 border-emerald-500/10">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Shield className="h-5 w-5 text-emerald-600" />
+            Garantias & Patrimônio
+          </CardTitle>
+          <CardDescription>Imóveis, veículos, patrimônio e capacidade de garantia da empresa</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!garantiasData && !garantiasLoading && !garantiasError && (
+            <Button onClick={buscarGarantias} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+              <Shield className="h-4 w-4" />
+              Verificar Garantias e Patrimônio
+            </Button>
+          )}
+
+          {garantiasLoading && (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+              <p className="text-sm text-muted-foreground">Verificando patrimônio e garantias...</p>
+              <div className="flex gap-6 text-xs text-muted-foreground">
+                <span className="animate-pulse">Imóveis...</span>
+                <span className="animate-pulse" style={{ animationDelay: '0.3s' }}>Veículos...</span>
+                <span className="animate-pulse" style={{ animationDelay: '0.6s' }}>Patrimônio...</span>
+              </div>
+            </div>
+          )}
+
+          {garantiasError && (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">Erro: {garantiasError}</p>
+              <Button variant="outline" size="sm" onClick={buscarGarantias}>Tentar novamente</Button>
+            </div>
+          )}
+
+          {garantiasData && (() => {
+            const est = garantiasData.estimativa;
+            const sections = Object.entries(garantiasData.garantias) as [string, any][];
+            const fmtVal = (v: number) => v >= 1_000_000_000 ? `R$ ${(v / 1_000_000_000).toFixed(1)}B` : v >= 1_000_000 ? `R$ ${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `R$ ${(v / 1_000).toFixed(0)}K` : `R$ ${v}`;
+
+            const capColor = est.capacidadeGarantia === 'alta' ? 'text-emerald-600' :
+                             est.capacidadeGarantia === 'média' ? 'text-yellow-600' :
+                             est.capacidadeGarantia === 'baixa' ? 'text-orange-500' : 'text-red-500';
+            const capBg = est.capacidadeGarantia === 'alta' ? 'from-emerald-500/10 to-emerald-500/5' :
+                          est.capacidadeGarantia === 'média' ? 'from-yellow-500/10 to-yellow-500/5' :
+                          est.capacidadeGarantia === 'baixa' ? 'from-orange-500/10 to-orange-500/5' : 'from-red-500/10 to-red-500/5';
+
+            return (
+              <div className="space-y-6 animate-fade-in">
+                {/* Guarantee Capacity Overview */}
+                <div className={`rounded-xl p-4 bg-gradient-to-br ${capBg} border`}>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <p className={`text-2xl font-black ${capColor}`}>{fmtVal(est.patrimonioEstimado)}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Patrimônio Est.</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-foreground">{fmtVal(est.garantiaMinima)}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Garantia Mín.</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-foreground">{fmtVal(est.garantiaMaxima)}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Garantia Máx.</p>
+                    </div>
+                    <div className="text-center flex flex-col items-center justify-center">
+                      <Badge className={`text-xs ${
+                        est.capacidadeGarantia === 'alta' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' :
+                        est.capacidadeGarantia === 'média' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                        est.capacidadeGarantia === 'baixa' ? 'bg-orange-100 text-orange-700 border-orange-300' :
+                        'bg-red-100 text-red-700 border-red-300'
+                      }`}>
+                        {est.capacidadeGarantia === 'alta' ? '🏛️' : est.capacidadeGarantia === 'média' ? '🏠' : '⚠️'} {est.capacidadeGarantia.charAt(0).toUpperCase() + est.capacidadeGarantia.slice(1)}
+                      </Badge>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-2">Capacidade</p>
+                    </div>
+                  </div>
+
+                  {/* Guarantee Bar */}
+                  <div className="mt-4">
+                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                      <span>Garantia Mínima (30%)</span>
+                      <span>Garantia Máxima (70%)</span>
+                    </div>
+                    <div className="relative h-4 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-1000"
+                        style={{ width: '70%' }}
+                      />
+                      <div
+                        className="absolute left-0 top-0 h-full rounded-full bg-emerald-700/50"
+                        style={{ width: '30%' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Asset Categories */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {sections.map(([key, section]) => {
+                    const config = {
+                      imoveis: { icon: <Home className="h-4 w-4" />, color: 'text-blue-600', borderColor: 'border-blue-300', bgColor: 'bg-blue-50 dark:bg-blue-950/20', emoji: '🏢' },
+                      veiculos: { icon: <Car className="h-4 w-4" />, color: 'text-amber-600', borderColor: 'border-amber-300', bgColor: 'bg-amber-50 dark:bg-amber-950/20', emoji: '🚗' },
+                      patrimonio: { icon: <Briefcase className="h-4 w-4" />, color: 'text-emerald-600', borderColor: 'border-emerald-300', bgColor: 'bg-emerald-50 dark:bg-emerald-950/20', emoji: '💼' },
+                    }[key] || { icon: <FileText className="h-4 w-4" />, color: 'text-muted-foreground', borderColor: 'border-border', bgColor: 'bg-muted/20', emoji: '📄' };
+
+                    const hasItems = section.items && section.items.length > 0;
+
+                    return (
+                      <Card key={key} className={`${config.borderColor} border overflow-hidden`}>
+                        <div className={`${config.bgColor} px-3 py-2 border-b ${config.borderColor}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className={config.color}>{config.icon}</span>
+                              <span className="text-xs font-bold">{section.label}</span>
+                            </div>
+                            <Badge variant={hasItems ? "default" : "secondary"} className="text-xs">
+                              {section.encontrados}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="p-3">
+                          {hasItems ? (
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                              {section.items.map((item: any, i: number) => (
+                                <a
+                                  key={i}
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block text-xs p-2 rounded-md border bg-background hover:bg-accent/50 transition-all hover:shadow-sm group"
+                                >
+                                  <p className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                                    {config.emoji} {item.titulo}
+                                  </p>
+                                  {item.descricao && (
+                                    <p className="text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>
+                                  )}
+                                  {(item.valores?.length > 0 || item.areas?.length > 0) && (
+                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                      {item.valores?.map((v: string, vi: number) => (
+                                        <Badge key={`v${vi}`} variant="outline" className={`text-[10px] ${config.color} ${config.borderColor}`}>
+                                          💰 {v}
+                                        </Badge>
+                                      ))}
+                                      {item.areas?.map((a: string, ai: number) => (
+                                        <Badge key={`a${ai}`} variant="outline" className="text-[10px]">
+                                          📐 {a}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
+                                    <ExternalLink className="h-2.5 w-2.5" />
+                                    {item.fonte}
+                                  </div>
+                                </a>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground py-3 justify-center">
+                              <Search className="h-3 w-3" />
+                              Nenhum registro público encontrado
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+
+                {/* Methodology note */}
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border text-xs text-muted-foreground">
+                  <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold mb-1">Sobre as Garantias</p>
+                    <p>Patrimônio estimado com base no Capital Social × Fator Porte ({est.multiplicador}x). A faixa de garantia (30-70%) representa a capacidade típica de oferecer bens como colateral. Dados de imóveis e veículos são de fontes públicas e podem não refletir a totalidade.</p>
+                  </div>
+                </div>
+
+                {/* Refresh */}
+                <div className="flex justify-center">
+                  <Button variant="ghost" size="sm" onClick={buscarGarantias} className="gap-2 text-xs text-muted-foreground">
                     <Search className="h-3 w-3" />
                     Buscar novamente
                   </Button>
