@@ -2,3 +2,9 @@ project_id = "wiaqvtjdutsriusyxeej"
 
 [functions.calculate-internationalization-score]
 verify_jwt = false
+
+[functions.buscar-cvm]
+verify_jwt = false
+
+[functions.buscar-sancoes-gov]
+verify_jwt = false
