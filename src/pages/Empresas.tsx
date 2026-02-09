@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign, Gavel, Ban, Receipt, BarChart3, Info, Home, Car, Briefcase, Shield } from "lucide-react";
+import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign, Gavel, Ban, Receipt, BarChart3, Info, Home, Car, Briefcase, Shield, CheckCircle2, XCircle, HelpCircle, Zap } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -545,6 +545,9 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
   const [garantiasData, setGarantiasData] = useState<any>(null);
   const [garantiasLoading, setGarantiasLoading] = useState(false);
   const [garantiasError, setGarantiasError] = useState<string | null>(null);
+  const [creditoIntData, setCreditoIntData] = useState<any>(null);
+  const [creditoIntLoading, setCreditoIntLoading] = useState(false);
+  const [creditoIntError, setCreditoIntError] = useState<string | null>(null);
 
   const buscarPortalTransparencia = async () => {
     setPortalLoading(true);
@@ -626,8 +629,168 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
     }
   };
 
+  const verificarCreditoInternacional = async () => {
+    setCreditoIntLoading(true);
+    setCreditoIntError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('verificar-credito-internacional', {
+        body: { cnpj: empresa.cnpj, razao_social: empresa.razao_social },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || 'Erro desconhecido');
+      setCreditoIntData(data);
+    } catch (err: any) {
+      setCreditoIntError(err.message);
+    } finally {
+      setCreditoIntLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {/* DESTAQUE: Crédito Internacional Verificado */}
+      <Card className={`border-2 overflow-hidden ${
+        creditoIntData?.status === 'confirmado' ? 'border-emerald-500 bg-gradient-to-r from-emerald-50 to-emerald-100/50 dark:from-emerald-950/40 dark:to-emerald-900/20' :
+        creditoIntData?.status === 'provavel' ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20' :
+        creditoIntData?.status === 'possivel' ? 'border-yellow-500 bg-gradient-to-r from-yellow-50 to-yellow-100/50 dark:from-yellow-950/40 dark:to-yellow-900/20' :
+        creditoIntData?.status === 'nao_encontrado' ? 'border-muted bg-muted/30' :
+        'border-primary/20 bg-gradient-to-r from-card to-accent/10'
+      }`}>
+        {/* Status banner when data exists */}
+        {creditoIntData && (
+          <div className={`px-4 py-2 text-sm font-bold flex items-center gap-2 ${
+            creditoIntData.status === 'confirmado' ? 'bg-emerald-600 text-white' :
+            creditoIntData.status === 'provavel' ? 'bg-blue-600 text-white' :
+            creditoIntData.status === 'possivel' ? 'bg-yellow-500 text-yellow-950' :
+            'bg-muted text-muted-foreground'
+          }`}>
+            {creditoIntData.status === 'confirmado' && <><CheckCircle2 className="h-4 w-4" /> ✅ CRÉDITO INTERNACIONAL CONFIRMADO</>}
+            {creditoIntData.status === 'provavel' && <><Zap className="h-4 w-4" /> ⚡ PROVÁVEL CRÉDITO INTERNACIONAL</>}
+            {creditoIntData.status === 'possivel' && <><HelpCircle className="h-4 w-4" /> 🔍 POSSÍVEL CRÉDITO INTERNACIONAL</>}
+            {creditoIntData.status === 'nao_encontrado' && <><XCircle className="h-4 w-4" /> Sem registro de crédito internacional</>}
+          </div>
+        )}
+
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Globe className="h-5 w-5 text-primary" />
+            Crédito Internacional — Verificação
+          </CardTitle>
+          <CardDescription>Verifica se a empresa já possui ou utilizou crédito internacional (ACC, ACE, Carta de Crédito, BNDES-Exim, etc.)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!creditoIntData && !creditoIntLoading && !creditoIntError && (
+            <Button onClick={verificarCreditoInternacional} className="gap-2">
+              <Globe className="h-4 w-4" />
+              Verificar Crédito Internacional
+            </Button>
+          )}
+
+          {creditoIntLoading && (
+            <div className="flex flex-col items-center gap-3 py-6">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Verificando histórico de crédito internacional...</p>
+            </div>
+          )}
+
+          {creditoIntError && (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">Erro: {creditoIntError}</p>
+              <Button variant="outline" size="sm" onClick={verificarCreditoInternacional}>Tentar novamente</Button>
+            </div>
+          )}
+
+          {creditoIntData && (
+            <div className="space-y-5 animate-fade-in">
+              {/* Summary stats */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-xl border p-3 text-center bg-background">
+                  <p className="text-3xl font-black text-foreground">{creditoIntData.indicadoresPositivos}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Indicadores</p>
+                </div>
+                <div className="rounded-xl border p-3 text-center bg-background">
+                  <p className="text-3xl font-black text-foreground">{creditoIntData.totalResultados}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Resultados</p>
+                </div>
+                <div className="rounded-xl border p-3 text-center bg-background">
+                  <Badge className={`text-xs ${
+                    creditoIntData.confianca === 'alta' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' :
+                    creditoIntData.confianca === 'média' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                    creditoIntData.confianca === 'baixa' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                    'bg-muted text-muted-foreground'
+                  }`}>
+                    Confiança {creditoIntData.confianca}
+                  </Badge>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-2">Precisão</p>
+                </div>
+              </div>
+
+              {/* Evidence tags */}
+              {creditoIntData.evidencias && creditoIntData.evidencias.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                    <FileText className="h-3 w-3" />
+                    Evidências Encontradas
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {creditoIntData.evidencias.map((ev: string, i: number) => (
+                      <Badge key={i} variant="outline" className="text-xs capitalize border-primary/30 text-primary">
+                        ✓ {ev}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Category results */}
+              {creditoIntData.categorias && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {Object.entries(creditoIntData.categorias).map(([key, section]: [string, any]) => {
+                    const config: Record<string, { icon: any; color: string; emoji: string }> = {
+                      credito_internacional: { icon: <DollarSign className="h-4 w-4" />, color: 'text-emerald-600', emoji: '💳' },
+                      operacoes_cambio: { icon: <TrendingUp className="h-4 w-4" />, color: 'text-blue-600', emoji: '💱' },
+                      relacoes_internacionais: { icon: <Globe className="h-4 w-4" />, color: 'text-purple-600', emoji: '🌐' },
+                    };
+                    const cfg = config[key] || { icon: <FileText className="h-4 w-4" />, color: 'text-muted-foreground', emoji: '📄' };
+
+                    return (
+                      <div key={key} className="rounded-lg border bg-background p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className={cfg.color}>{cfg.icon}</span>
+                            <span className="text-xs font-bold">{section.label}</span>
+                          </div>
+                          <Badge variant={section.encontrados > 0 ? "default" : "secondary"} className="text-xs">{section.encontrados}</Badge>
+                        </div>
+                        {section.items && section.items.length > 0 ? (
+                          <div className="space-y-1 max-h-36 overflow-y-auto">
+                            {section.items.slice(0, 3).map((item: any, i: number) => (
+                              <a key={i} href={item.url} target="_blank" rel="noopener noreferrer" className="block text-xs p-1.5 rounded border bg-muted/30 hover:bg-accent transition-colors">
+                                <p className="font-medium line-clamp-1">{cfg.emoji} {item.titulo}</p>
+                                {item.descricao && <p className="text-muted-foreground line-clamp-1 mt-0.5">{item.descricao}</p>}
+                              </a>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground text-center py-2">Nenhum registro</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex justify-center">
+                <Button variant="ghost" size="sm" onClick={verificarCreditoInternacional} className="gap-2 text-xs text-muted-foreground">
+                  <Search className="h-3 w-3" />
+                  Verificar novamente
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Score de Crédito Internacional - Destaque */}
       <Card className="border-2 border-primary/20 bg-gradient-to-r from-card to-accent/20">
         <CardHeader className="pb-3">
