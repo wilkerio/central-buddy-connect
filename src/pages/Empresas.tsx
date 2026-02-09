@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { fetchCnpj, fetchAllInstituicoesFinanceiras, CNPJS_POOL, type CnpjData } from "@/lib/empresa-api";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,9 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign, Gavel, Ban, Receipt } from "lucide-react";
+import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign, Gavel, Ban, Receipt, BarChart3, Info } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 const SEARCH_INTERVAL = 8000;
 
@@ -538,6 +539,9 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
   const [dividasData, setDividasData] = useState<any>(null);
   const [dividasLoading, setDividasLoading] = useState(false);
   const [dividasError, setDividasError] = useState<string | null>(null);
+  const [faturamentoData, setFaturamentoData] = useState<any>(null);
+  const [faturamentoLoading, setFaturamentoLoading] = useState(false);
+  const [faturamentoError, setFaturamentoError] = useState<string | null>(null);
 
   const buscarPortalTransparencia = async () => {
     setPortalLoading(true);
@@ -570,6 +574,30 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
       setDividasError(err.message);
     } finally {
       setDividasLoading(false);
+    }
+  };
+
+  const buscarFaturamento = async () => {
+    setFaturamentoLoading(true);
+    setFaturamentoError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('buscar-faturamento', {
+        body: {
+          cnpj: empresa.cnpj,
+          razao_social: empresa.razao_social,
+          capital_social: empresa.capital_social,
+          cnae_fiscal: empresa.cnae_fiscal,
+          porte: empresa.porte,
+          data_inicio_atividade: empresa.data_inicio_atividade,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || 'Erro desconhecido');
+      setFaturamentoData(data);
+    } catch (err: any) {
+      setFaturamentoError(err.message);
+    } finally {
+      setFaturamentoLoading(false);
     }
   };
 
@@ -635,6 +663,162 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
         </CardContent>
       </Card>
 
+      {/* Faturamento Estimado */}
+      <Card className="border-2 border-primary/10">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            Faturamento Estimado
+          </CardTitle>
+          <CardDescription>Estimativa baseada em dados públicos + busca de dados reais na web</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!faturamentoData && !faturamentoLoading && !faturamentoError && (
+            <Button onClick={buscarFaturamento} className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Calcular Faturamento Estimado
+            </Button>
+          )}
+
+          {faturamentoLoading && (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Calculando estimativa e buscando dados reais...</p>
+            </div>
+          )}
+
+          {faturamentoError && (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">Erro: {faturamentoError}</p>
+              <Button variant="outline" size="sm" onClick={buscarFaturamento}>Tentar novamente</Button>
+            </div>
+          )}
+
+          {faturamentoData && (() => {
+            const est = faturamentoData.estimativa;
+            const mensal = est.mensal || [];
+            const maxVal = Math.max(...mensal.map((m: any) => m.valor));
+            const fmtVal = (v: number) => v >= 1_000_000_000 ? `R$ ${(v / 1_000_000_000).toFixed(1)}B` : v >= 1_000_000 ? `R$ ${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `R$ ${(v / 1_000).toFixed(0)}K` : `R$ ${v}`;
+
+            return (
+              <div className="space-y-6 animate-fade-in">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 p-3 text-center">
+                    <p className="text-2xl font-black text-primary">{fmtVal(est.anual)}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Faturamento Anual Est.</p>
+                  </div>
+                  <div className="rounded-xl bg-gradient-to-br from-accent/30 to-accent/10 border p-3 text-center">
+                    <p className="text-2xl font-black text-foreground">{fmtVal(Math.round(est.anual / 12))}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Média Mensal</p>
+                  </div>
+                  <div className="rounded-xl bg-muted/50 border p-3 text-center">
+                    <p className="text-lg font-bold text-foreground">{est.setor}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Setor</p>
+                  </div>
+                  <div className="rounded-xl bg-muted/50 border p-3 text-center">
+                    <Badge className={`text-xs ${
+                      est.confianca === 'média' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                      est.confianca === 'baixa' ? 'bg-orange-100 text-orange-700 border-orange-300' :
+                      'bg-red-100 text-red-700 border-red-300'
+                    }`}>
+                      {est.confianca === 'média' ? '⚡' : '⚠️'} Confiança {est.confianca}
+                    </Badge>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-2">Precisão</p>
+                  </div>
+                </div>
+
+                {/* Monthly Chart */}
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3" />
+                    Projeção Mensal (com sazonalidade)
+                  </p>
+                  <div className="h-56 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={mensal} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                        <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: number) => fmtVal(v)} width={65} />
+                        <Tooltip
+                          formatter={(value: number) => [fmtVal(value), 'Faturamento']}
+                          contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+                        />
+                        <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
+                          {mensal.map((entry: any, i: number) => (
+                            <Cell
+                              key={i}
+                              fill={entry.valor >= maxVal * 0.9 ? 'hsl(var(--primary))' : entry.valor >= maxVal * 0.7 ? 'hsl(var(--primary) / 0.7)' : 'hsl(var(--primary) / 0.4)'}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Methodology */}
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border text-xs text-muted-foreground">
+                  <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold mb-1">Metodologia da Estimativa</p>
+                    <p>{est.metodologia}</p>
+                  </div>
+                </div>
+
+                {/* Web Data */}
+                {faturamentoData.dadosWeb && faturamentoData.dadosWeb.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <Globe className="h-3 w-3" />
+                      Dados Reais Encontrados na Web
+                    </p>
+                    <div className="space-y-1.5">
+                      {faturamentoData.dadosWeb.map((item: any, i: number) => (
+                        <a
+                          key={i}
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-xs p-3 rounded-lg border bg-background hover:bg-accent/50 transition-all hover:shadow-sm group"
+                        >
+                          <p className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                            {item.titulo}
+                          </p>
+                          {item.descricao && (
+                            <p className="text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>
+                          )}
+                          {item.valoresEncontrados && item.valoresEncontrados.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {item.valoresEncontrados.map((v: string, vi: number) => (
+                                <Badge key={vi} variant="outline" className="text-xs text-primary border-primary/30">
+                                  💰 {v}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
+                            <ExternalLink className="h-2.5 w-2.5" />
+                            {item.fonte}
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Refresh */}
+                <div className="flex justify-center">
+                  <Button variant="ghost" size="sm" onClick={buscarFaturamento} className="gap-2 text-xs text-muted-foreground">
+                    <Search className="h-3 w-3" />
+                    Recalcular
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
 
 
       <Card>
