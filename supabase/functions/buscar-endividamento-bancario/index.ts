@@ -3,6 +3,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+function urlToTitle(url: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/\/$/, '').split('/').pop() || '';
+    const decoded = decodeURIComponent(path).replace(/[-_]/g, ' ').replace(/\.\w+$/, '');
+    if (decoded.length > 5) return decoded.substring(0, 80);
+    return u.hostname.replace('www.', '');
+  } catch { return url.substring(0, 80); }
+}
+
+function citationsToItems(citations: string[]) {
+  return citations.map((url: string) => ({
+    titulo: urlToTitle(url),
+    descricao: '',
+    url,
+    fonte: (() => { try { return new URL(url).hostname; } catch { return 'web'; } })(),
+  }));
+}
+
 async function perplexitySearch(apiKey: string, query: string): Promise<{ content: string; citations: string[] }> {
   const response = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
@@ -58,7 +77,7 @@ Deno.serve(async (req) => {
       {
         tipo: 'scr_operacoes',
         label: 'Operações de Crédito (SCR)',
-        query: `Pesquise sobre operações de crédito bancário (SCR - Sistema de Informações de Crédito) da empresa "${nome}" CNPJ ${cnpjFormatted}. Informe empréstimos, financiamentos e operações de crédito.`,
+        query: `Pesquise sobre operações de crédito bancário (SCR) da empresa "${nome}" CNPJ ${cnpjFormatted}. Informe empréstimos, financiamentos e operações de crédito.`,
       },
       {
         tipo: 'emprestimos_financiamentos',
@@ -68,7 +87,7 @@ Deno.serve(async (req) => {
       {
         tipo: 'debentures_titulos',
         label: 'Debêntures e Títulos de Dívida',
-        query: `Pesquise sobre debêntures, CRI, CRA, notas promissórias e títulos de dívida emitidos pela empresa "${nome}" CNPJ ${cnpjFormatted}. Informe valores e condições.`,
+        query: `Pesquise sobre debêntures, CRI, CRA, notas promissórias e títulos de dívida da empresa "${nome}" CNPJ ${cnpjFormatted}. Informe valores e condições.`,
       },
       {
         tipo: 'credito_rural_bndes',
@@ -96,25 +115,20 @@ Deno.serve(async (req) => {
       searches.map(async (search) => {
         try {
           const { content, citations } = await perplexitySearch(apiKey, search.query);
-
           const valores = content.match(/R\$\s?[\d.,]+/g) || [];
           const termosBancarios: string[] = [];
           const textLower = content.toLowerCase();
           for (const termo of termosAlvo) {
-            if (textLower.includes(termo.toLowerCase())) {
-              termosBancarios.push(termo);
-            }
+            if (textLower.includes(termo.toLowerCase())) termosBancarios.push(termo);
           }
+
+          const items = citationsToItems(citations);
+          if (items.length > 0 && content) items[0].descricao = content.substring(0, 200);
 
           results[search.tipo] = {
             label: search.label,
-            encontrados: citations.length,
-            items: citations.map((url: string) => ({
-              titulo: url,
-              descricao: '',
-              url,
-              fonte: new URL(url).hostname,
-            })),
+            encontrados: items.length,
+            items,
             valores: [...new Set(valores)],
             termosBancarios: [...new Set(termosBancarios)],
             resumo: content,
@@ -122,18 +136,13 @@ Deno.serve(async (req) => {
         } catch (err) {
           console.error(`Error searching ${search.tipo}:`, err);
           results[search.tipo] = {
-            label: search.label,
-            encontrados: 0,
-            items: [],
-            valores: [],
-            termosBancarios: [],
+            label: search.label, encontrados: 0, items: [], valores: [], termosBancarios: [],
             error: err instanceof Error ? err.message : 'Erro desconhecido',
           };
         }
       })
     );
 
-    // Calcular score de endividamento
     const totalRegistros = Object.values(results).reduce((acc: number, s: any) => acc + (s.encontrados || 0), 0);
     const todosTermos = Object.values(results).reduce((acc: string[], s: any) => [...acc, ...(s.termosBancarios || [])], [] as string[]);
     const termosUnicos = [...new Set(todosTermos)];
@@ -141,30 +150,15 @@ Deno.serve(async (req) => {
 
     let nivel: string;
     let status: string;
-    if (totalRegistros >= 15 || termosUnicos.length >= 10) {
-      nivel = 'alto';
-      status = 'Endividamento Bancário Elevado';
-    } else if (totalRegistros >= 8 || termosUnicos.length >= 5) {
-      nivel = 'moderado';
-      status = 'Endividamento Bancário Moderado';
-    } else if (totalRegistros >= 3 || termosUnicos.length >= 2) {
-      nivel = 'baixo';
-      status = 'Endividamento Bancário Baixo';
-    } else if (totalRegistros > 0) {
-      nivel = 'minimo';
-      status = 'Poucos Registros Encontrados';
-    } else {
-      nivel = 'nenhum';
-      status = 'Sem Registros de Endividamento';
-    }
+    if (totalRegistros >= 15 || termosUnicos.length >= 10) { nivel = 'alto'; status = 'Endividamento Bancário Elevado'; }
+    else if (totalRegistros >= 8 || termosUnicos.length >= 5) { nivel = 'moderado'; status = 'Endividamento Bancário Moderado'; }
+    else if (totalRegistros >= 3 || termosUnicos.length >= 2) { nivel = 'baixo'; status = 'Endividamento Bancário Baixo'; }
+    else if (totalRegistros > 0) { nivel = 'minimo'; status = 'Poucos Registros Encontrados'; }
+    else { nivel = 'nenhum'; status = 'Sem Registros de Endividamento'; }
 
     return new Response(
       JSON.stringify({
-        success: true,
-        cnpj: cleanCnpj,
-        nivel,
-        status,
-        totalRegistros,
+        success: true, cnpj: cleanCnpj, nivel, status, totalRegistros,
         totalValoresEncontrados: todosValores.length,
         termosIdentificados: termosUnicos,
         valoresEncontrados: [...new Set(todosValores)].slice(0, 10),

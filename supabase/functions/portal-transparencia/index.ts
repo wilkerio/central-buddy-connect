@@ -3,6 +3,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function urlToTitle(url: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/\/$/, '').split('/').pop() || '';
+    const decoded = decodeURIComponent(path).replace(/[-_]/g, ' ').replace(/\.\w+$/, '');
+    if (decoded.length > 5) return decoded.substring(0, 80);
+    return u.hostname.replace('www.', '');
+  } catch { return url.substring(0, 80); }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -60,8 +70,6 @@ Deno.serve(async (req) => {
 
     const content = data.choices?.[0]?.message?.content || '';
     const citations = data.citations || [];
-
-    // Parse content into sections
     const resumo = extractResumo(content);
 
     const result = {
@@ -70,7 +78,7 @@ Deno.serve(async (req) => {
       url: `https://portaldatransparencia.gov.br/pessoa-juridica/${cleanCnpj}`,
       markdown: content,
       resumo,
-      fontes: citations,
+      fontes: citations.map((url: string) => ({ url, titulo: urlToTitle(url), fonte: (() => { try { return new URL(url).hostname; } catch { return 'web'; } })() })),
     };
 
     return new Response(
@@ -93,34 +101,22 @@ function extractResumo(content: string): {
   outrasInfos: string[];
 } {
   const lines = content.split('\n').filter(l => l.trim());
-  
   const contratos: string[] = [];
   const valoresRecebidos: string[] = [];
   const sancoes: string[] = [];
   const outrasInfos: string[] = [];
-
   let currentSection = '';
 
   for (const line of lines) {
     const lower = line.toLowerCase();
-    
-    if (lower.includes('contrato') || lower.includes('licitaç') || lower.includes('convênio')) {
-      currentSection = 'contratos';
-    } else if (lower.includes('receb') || lower.includes('pagamento') || lower.includes('valor') || lower.includes('r$')) {
-      currentSection = 'valores';
-    } else if (lower.includes('sanç') || lower.includes('penalidade') || lower.includes('impediment') || lower.includes('inidone') || lower.includes('suspens')) {
-      currentSection = 'sancoes';
-    }
+    if (lower.includes('contrato') || lower.includes('licitaç') || lower.includes('convênio')) currentSection = 'contratos';
+    else if (lower.includes('receb') || lower.includes('pagamento') || lower.includes('valor') || lower.includes('r$')) currentSection = 'valores';
+    else if (lower.includes('sanç') || lower.includes('penalidade') || lower.includes('impediment') || lower.includes('inidone') || lower.includes('suspens')) currentSection = 'sancoes';
 
-    if (currentSection === 'contratos' && line.trim().length > 5) {
-      contratos.push(line.trim());
-    } else if (currentSection === 'valores' && line.trim().length > 5) {
-      valoresRecebidos.push(line.trim());
-    } else if (currentSection === 'sancoes' && line.trim().length > 5) {
-      sancoes.push(line.trim());
-    } else if (line.trim().length > 10) {
-      outrasInfos.push(line.trim());
-    }
+    if (currentSection === 'contratos' && line.trim().length > 5) contratos.push(line.trim());
+    else if (currentSection === 'valores' && line.trim().length > 5) valoresRecebidos.push(line.trim());
+    else if (currentSection === 'sancoes' && line.trim().length > 5) sancoes.push(line.trim());
+    else if (line.trim().length > 10) outrasInfos.push(line.trim());
   }
 
   return {

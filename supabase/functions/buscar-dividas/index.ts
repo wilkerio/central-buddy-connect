@@ -3,6 +3,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+function urlToTitle(url: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/\/$/, '').split('/').pop() || '';
+    const decoded = decodeURIComponent(path).replace(/[-_]/g, ' ').replace(/\.\w+$/, '');
+    if (decoded.length > 5) return decoded.substring(0, 80);
+    return u.hostname.replace('www.', '');
+  } catch { return url.substring(0, 80); }
+}
+
+function citationsToItems(citations: string[]) {
+  return citations.map((url: string) => ({
+    titulo: urlToTitle(url),
+    descricao: '',
+    url,
+    fonte: (() => { try { return new URL(url).hostname; } catch { return 'web'; } })(),
+  }));
+}
+
 async function perplexitySearch(apiKey: string, query: string): Promise<{ content: string; citations: string[] }> {
   const response = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
@@ -84,19 +103,17 @@ Deno.serve(async (req) => {
       searches.map(async (search) => {
         try {
           const { content, citations } = await perplexitySearch(apiKey, search.query);
-
-          // Extract monetary values from content
           const valores = content.match(/R\$\s?[\d.,]+/g) || [];
+          const items = citationsToItems(citations);
+          // Add summary as first item description
+          if (items.length > 0 && content) {
+            items[0].descricao = content.substring(0, 200);
+          }
 
           results[search.tipo] = {
             label: search.label,
-            encontrados: citations.length,
-            items: citations.map((url: string) => ({
-              titulo: url,
-              descricao: '',
-              url,
-              fonte: new URL(url).hostname,
-            })),
+            encontrados: items.length,
+            items,
             valores: [...new Set(valores)],
             resumo: content,
           };
@@ -114,11 +131,7 @@ Deno.serve(async (req) => {
     );
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        cnpj: cleanCnpj,
-        dividas: results,
-      }),
+      JSON.stringify({ success: true, cnpj: cleanCnpj, dividas: results }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

@@ -64,8 +64,6 @@ Deno.serve(async (req) => {
 
     const content = data.choices?.[0]?.message?.content || '';
     const citations = data.citations || [];
-
-    // Extract contacts from AI response
     const contacts: { valor: string; fonte: string; tipo: string }[] = [];
 
     if (tipo === 'email') {
@@ -75,11 +73,7 @@ Deno.serve(async (req) => {
         const lower = email.toLowerCase();
         if (!lower.includes('example') && !lower.includes('sentry') && !lower.includes('noreply') && !lower.includes('no-reply')) {
           if (!contacts.find(c => c.valor === lower)) {
-            contacts.push({
-              valor: lower,
-              fonte: citations[0] || 'Perplexity',
-              tipo: 'email',
-            });
+            contacts.push({ valor: lower, fonte: citations[0] || 'Perplexity', tipo: 'email' });
           }
         }
       }
@@ -90,11 +84,7 @@ Deno.serve(async (req) => {
         const cleaned = phone.replace(/\D/g, '');
         if (cleaned.length >= 10 && cleaned.length <= 13) {
           if (!contacts.find(c => c.valor.replace(/\D/g, '') === cleaned)) {
-            contacts.push({
-              valor: phone.trim(),
-              fonte: citations[0] || 'Perplexity',
-              tipo: 'telefone',
-            });
+            contacts.push({ valor: phone.trim(), fonte: citations[0] || 'Perplexity', tipo: 'telefone' });
           }
         }
       }
