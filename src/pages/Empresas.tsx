@@ -800,73 +800,153 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
               <Users className="h-4 w-4" />
               Sócios & Contato ({empresa.qsa.length})
             </CardTitle>
-            <CardDescription>Links para buscar os sócios nas redes sociais</CardDescription>
+            <CardDescription>Busca automática de emails e telefones dos sócios</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {empresa.qsa.map((socio, i) => (
-                <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border bg-muted/30">
-                  <div>
-                    <p className="font-medium text-foreground">{socio.nome_socio}</p>
-                    <p className="text-xs text-muted-foreground">{socio.qualificacao_socio}</p>
-                  </div>
-                    <div className="flex flex-wrap gap-2">
-                    <a
-                      href={`https://www.google.com/search?q=${encodeURIComponent(socio.nome_socio + " " + (empresa.nome_fantasia || empresa.razao_social) + " email")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button size="sm" variant="outline" className="gap-1.5 text-xs">
-                        <Mail className="h-3 w-3" />
-                        Buscar Email
-                      </Button>
-                    </a>
-                    <a
-                      href={`https://www.google.com/search?q=${encodeURIComponent(socio.nome_socio + " " + (empresa.nome_fantasia || empresa.razao_social) + " whatsapp telefone contato")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button size="sm" variant="outline" className="gap-1.5 text-xs text-green-700">
-                        <MessageCircle className="h-3 w-3" />
-                        Buscar WhatsApp
-                      </Button>
-                    </a>
-                    <a
-                      href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(socio.nome_socio)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button size="sm" variant="outline" className="gap-1.5 text-xs">
-                        <ExternalLink className="h-3 w-3" />
-                        LinkedIn
-                      </Button>
-                    </a>
-                    <a
-                      href={`https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(socio.nome_socio)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button size="sm" variant="outline" className="gap-1.5 text-xs">
-                        <ExternalLink className="h-3 w-3" />
-                        Instagram
-                      </Button>
-                    </a>
-                    <a
-                      href={`https://www.google.com/search?q=${encodeURIComponent(socio.nome_socio + " " + (empresa.nome_fantasia || empresa.razao_social))}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button size="sm" variant="outline" className="gap-1.5 text-xs">
-                        <Search className="h-3 w-3" />
-                        Google
-                      </Button>
-                    </a>
-                  </div>
-                </div>
+                <SocioContactCard key={i} socio={socio} empresa={empresa} />
               ))}
             </div>
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}
+
+
+function SocioContactCard({ socio, empresa }: { socio: { nome_socio: string; qualificacao_socio: string }; empresa: CnpjData }) {
+  const [emailResults, setEmailResults] = useState<{ valor: string; fonte: string }[]>([]);
+  const [phoneResults, setPhoneResults] = useState<{ valor: string; fonte: string }[]>([]);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [phoneLoading, setPhoneLoading] = useState(false);
+  const [emailSearched, setEmailSearched] = useState(false);
+  const [phoneSearched, setPhoneSearched] = useState(false);
+
+  const buscarContato = async (tipo: 'email' | 'whatsapp') => {
+    const setLoading = tipo === 'email' ? setEmailLoading : setPhoneLoading;
+    const setResults = tipo === 'email' ? setEmailResults : setPhoneResults;
+    const setSearched = tipo === 'email' ? setEmailSearched : setPhoneSearched;
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('buscar-contato', {
+        body: {
+          nome: socio.nome_socio,
+          empresa: empresa.nome_fantasia || empresa.razao_social,
+          tipo,
+        },
+      });
+      if (error) throw error;
+      setResults(data?.contatos || []);
+    } catch (err) {
+      console.error(`Erro buscando ${tipo}:`, err);
+    } finally {
+      setLoading(false);
+      setSearched(true);
+    }
+  };
+
+  return (
+    <div className="p-3 rounded-lg border bg-muted/30 space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <p className="font-medium text-foreground">{socio.nome_socio}</p>
+          <p className="text-xs text-muted-foreground">{socio.qualificacao_socio}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs"
+            onClick={() => buscarContato('email')}
+            disabled={emailLoading}
+          >
+            {emailLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+            Buscar Email
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs text-green-700"
+            onClick={() => buscarContato('whatsapp')}
+            disabled={phoneLoading}
+          >
+            {phoneLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageCircle className="h-3 w-3" />}
+            Buscar WhatsApp
+          </Button>
+          <a
+            href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(socio.nome_socio)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+              <ExternalLink className="h-3 w-3" />
+              LinkedIn
+            </Button>
+          </a>
+          <a
+            href={`https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(socio.nome_socio)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+              <ExternalLink className="h-3 w-3" />
+              Instagram
+            </Button>
+          </a>
+          <a
+            href={`https://www.google.com/search?q=${encodeURIComponent(socio.nome_socio + " " + (empresa.nome_fantasia || empresa.razao_social))}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+              <Search className="h-3 w-3" />
+              Google
+            </Button>
+          </a>
+        </div>
+      </div>
+
+      {/* Email results */}
+      {emailSearched && (
+        <div className="pl-0 sm:pl-4">
+          {emailResults.length > 0 ? (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">📧 Emails encontrados:</p>
+              {emailResults.map((c, i) => (
+                <a key={i} href={`mailto:${c.valor}`} className="flex items-center gap-2 text-xs p-1.5 rounded border bg-background hover:bg-accent transition-colors">
+                  <Mail className="h-3 w-3 text-primary flex-shrink-0" />
+                  <span className="font-medium text-primary">{c.valor}</span>
+                  <span className="text-muted-foreground truncate ml-auto text-[10px]">{new URL(c.fonte).hostname}</span>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Nenhum email encontrado automaticamente.</p>
+          )}
+        </div>
+      )}
+
+      {/* Phone results */}
+      {phoneSearched && (
+        <div className="pl-0 sm:pl-4">
+          {phoneResults.length > 0 ? (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">📱 Telefones encontrados:</p>
+              {phoneResults.map((c, i) => (
+                <a key={i} href={`https://wa.me/55${c.valor.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs p-1.5 rounded border bg-background hover:bg-accent transition-colors">
+                  <MessageCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
+                  <span className="font-medium text-green-700">{c.valor}</span>
+                  <span className="text-muted-foreground truncate ml-auto text-[10px]">{(() => { try { return new URL(c.fonte).hostname; } catch { return c.fonte; } })()}</span>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Nenhum telefone encontrado automaticamente.</p>
+          )}
+        </div>
       )}
     </div>
   );
