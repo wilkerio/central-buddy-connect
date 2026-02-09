@@ -23,7 +23,12 @@ function shuffleArray<T>(arr: T[]): T[] {
 }
 
 export default function Empresas() {
-  const [empresas, setEmpresas] = useState<CnpjData[]>([]);
+  const [empresas, setEmpresas] = useState<CnpjData[]>(() => {
+    try {
+      const saved = localStorage.getItem("empresas-cache");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [selectedEmpresa, setSelectedEmpresa] = useState<CnpjData | null>(null);
   const [isRunning, setIsRunning] = useState(true);
   const [currentSearch, setCurrentSearch] = useState<string | null>(null);
@@ -32,7 +37,22 @@ export default function Empresas() {
   const [cnpjManual, setCnpjManual] = useState("");
   const [isManualLoading, setIsManualLoading] = useState(false);
   const queueRef = useRef<string[]>([]);
-  const fetchedRef = useRef<Set<string>>(new Set());
+  const fetchedRef = useRef<Set<string>>(new Set(
+    (() => {
+      try {
+        const saved = localStorage.getItem("empresas-cache");
+        const parsed: CnpjData[] = saved ? JSON.parse(saved) : [];
+        return parsed.map(e => e.cnpj);
+      } catch { return []; }
+    })()
+  ));
+
+  // Save to localStorage whenever empresas changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("empresas-cache", JSON.stringify(empresas));
+    } catch { /* storage full */ }
+  }, [empresas]);
 
   // Auto-load financial institutions
   const ifQuery = useQuery({
