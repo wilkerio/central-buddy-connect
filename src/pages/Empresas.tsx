@@ -9,8 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, Handshake, Star, Briefcase, Award, Copy, Check, Sparkles } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
+import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 
@@ -40,141 +39,7 @@ const CNAES_INTERNACIONAIS = [
   500, 510, 600, 700, 800, 900, 1000, // Agricultura / mineração
 ];
 
-// Perfil de clientes da empresa baseado no setor
-interface PerfilClientes {
-  tipo: string;
-  volume: string;
-  ticketMedio: string;
-  perfilIdeal: boolean;
-  descricao: string;
-  exemploClientes: string;
-}
 
-function analisarBaseClientes(empresa: CnpjData): PerfilClientes {
-  const cnae = String(empresa.cnae_fiscal);
-  const desc = (empresa.cnae_fiscal_descricao || "").toLowerCase();
-  const capital = empresa.capital_social;
-  const porte = (empresa.porte || "").toUpperCase();
-  const isGrande = porte.includes("GRANDE") || porte.includes("DEMAIS") || capital >= 50_000_000;
-
-  // Bancos e fintechs - TÊM clientes PF/PJ com dinheiro
-  if (cnae.startsWith("64") || cnae.startsWith("65") || cnae.startsWith("66") || desc.match(/banco|financ|crédit|seguro|pagamento|fintech/)) {
-    return {
-      tipo: "🏦 Clientes Bancários / Financeiros",
-      volume: isGrande ? "Milhões de clientes PF e PJ" : "Milhares de clientes PF e PJ",
-      ticketMedio: capital >= 100_000_000 ? "Alto (investidores, empresários, alta renda)" : "Médio a Alto",
-      perfilIdeal: true,
-      descricao: "Instituição financeira com base de clientes que já opera câmbio, investimentos e produtos internacionais. Ideal para oferecer crédito internacional como produto complementar.",
-      exemploClientes: "Empresários, investidores, pessoas de alta renda, PMEs com operações de importação/exportação"
-    };
-  }
-
-  // Varejo grande - MUITOS clientes
-  if (desc.match(/varejo|comércio|loja|magazine|drogaria|supermercado|atacado/) || cnae.startsWith("47") || cnae.startsWith("46")) {
-    return {
-      tipo: "🛒 Base de Consumidores",
-      volume: isGrande ? "Milhões de consumidores ativos" : "Centenas de milhares de consumidores",
-      ticketMedio: capital >= 50_000_000 ? "Variado — inclui alta renda" : "Médio",
-      perfilIdeal: isGrande,
-      descricao: "Grande base de consumidores com dados cadastrais e financeiros. Potencial para cross-sell de crédito internacional para clientes de alta renda.",
-      exemploClientes: "Consumidores de alta renda, compradores internacionais, clientes de cartão de crédito premium"
-    };
-  }
-
-  // Telecomunicações - BASE GIGANTE
-  if (desc.match(/telecom|telefôn|celular|móvel|telecomunic/) || cnae.startsWith("61")) {
-    return {
-      tipo: "📱 Base de Assinantes Telecom",
-      volume: "Dezenas de milhões de assinantes",
-      ticketMedio: "Variado — segmento pós-pago é alta renda",
-      perfilIdeal: true,
-      descricao: "Operadora com milhões de assinantes e dados financeiros dos clientes. Clientes pós-pago e corporativo são o perfil ideal para crédito internacional.",
-      exemploClientes: "Assinantes pós-pago, clientes corporativos, viajantes internacionais frequentes"
-    };
-  }
-
-  // Seguradoras e saúde - clientes com patrimônio
-  if (desc.match(/seguro|saúde|plano|hospitalar|previdên/) || cnae.startsWith("65")) {
-    return {
-      tipo: "🏥 Segurados e Beneficiários",
-      volume: isGrande ? "Milhões de segurados" : "Centenas de milhares",
-      ticketMedio: "Alto — clientes com patrimônio a proteger",
-      perfilIdeal: true,
-      descricao: "Empresa com base de clientes que possuem patrimônio significativo. Perfil ideal para crédito internacional e proteção cambial.",
-      exemploClientes: "Segurados de alto patrimônio, empresas com apólices corporativas, beneficiários de previdência"
-    };
-  }
-
-  // Energia, petróleo, mineração - B2B grandes
-  if (desc.match(/petróleo|energia|mineração|siderurg|gás/) || cnae.startsWith("06") || cnae.startsWith("35") || cnae.startsWith("07")) {
-    return {
-      tipo: "⚡ Clientes Corporativos B2B",
-      volume: "Grandes corporações como clientes",
-      ticketMedio: "Muito Alto — contratos corporativos",
-      perfilIdeal: true,
-      descricao: "Empresa do setor de commodities/energia com clientes B2B de grande porte que operam internacionalmente. Excelente para crédito internacional de alto valor.",
-      exemploClientes: "Indústrias exportadoras, distribuidoras internacionais, grandes construtoras"
-    };
-  }
-
-  // Tecnologia - clientes B2B
-  if (desc.match(/software|tecnologia|informática|dados|sistemas/) || cnae.startsWith("62") || cnae.startsWith("63")) {
-    return {
-      tipo: "💻 Clientes de Tecnologia",
-      volume: isGrande ? "Milhares de empresas clientes" : "Centenas de empresas clientes",
-      ticketMedio: "Médio a Alto",
-      perfilIdeal: isGrande,
-      descricao: "Empresa de tecnologia com base de clientes corporativos que podem ter operações internacionais (SaaS global, pagamentos, etc).",
-      exemploClientes: "Startups com operação global, empresas de e-commerce cross-border, fintechs"
-    };
-  }
-
-  // Aéreo e logística - viajantes e importadores
-  if (desc.match(/aére|aviação|logística|transporte|navegação/) || cnae.startsWith("51") || cnae.startsWith("50") || cnae.startsWith("49")) {
-    return {
-      tipo: "✈️ Viajantes e Importadores",
-      volume: isGrande ? "Milhões de passageiros/clientes" : "Centenas de milhares",
-      ticketMedio: "Alto — viajantes internacionais",
-      perfilIdeal: true,
-      descricao: "Empresa de transporte/logística com clientes que viajam ou importam/exportam frequentemente. Base ideal para crédito e câmbio internacional.",
-      exemploClientes: "Viajantes internacionais frequentes, empresas importadoras/exportadoras, operadores logísticos"
-    };
-  }
-
-  // Agro e alimentos - exportadores
-  if (desc.match(/agr|pecuár|aliment|carnes|grãos|soja/) || cnae.startsWith("01") || cnae.startsWith("10")) {
-    return {
-      tipo: "🌾 Produtores e Exportadores Agro",
-      volume: isGrande ? "Grande cadeia de fornecedores" : "Cadeia média de fornecedores",
-      ticketMedio: "Alto — commodities internacionais",
-      perfilIdeal: true,
-      descricao: "Empresa do agronegócio que exporta e tem cadeia de fornecedores que precisam de financiamento em moeda estrangeira.",
-      exemploClientes: "Produtores rurais exportadores, cooperativas agrícolas, trading companies"
-    };
-  }
-
-  // Construção
-  if (desc.match(/construção|imobiliári|engenharia|incorpor/) || cnae.startsWith("41") || cnae.startsWith("42")) {
-    return {
-      tipo: "🏗️ Clientes de Construção/Imobiliário",
-      volume: isGrande ? "Milhares de compradores" : "Centenas de compradores",
-      ticketMedio: "Alto — compradores de imóveis",
-      perfilIdeal: capital >= 10_000_000,
-      descricao: "Empresa com clientes compradores de imóveis de alto valor. Potencial para crédito internacional para investidores imobiliários.",
-      exemploClientes: "Investidores imobiliários, compradores de alto padrão, fundos imobiliários"
-    };
-  }
-
-  // Genérico
-  return {
-    tipo: "🏢 Base de Clientes Geral",
-    volume: isGrande ? "Grande base de clientes" : "Base de clientes moderada",
-    ticketMedio: capital >= 10_000_000 ? "Médio a Alto" : "Variado",
-    perfilIdeal: isGrande && capital >= 50_000_000,
-    descricao: "Empresa com base de clientes que pode incluir prospects para crédito internacional, dependendo do perfil.",
-    exemploClientes: "Clientes corporativos e pessoas físicas de variados perfis"
-  };
-}
 
 interface CreditoInternacionalScore {
   score: number; // 0-100
@@ -488,7 +353,6 @@ export default function Empresas() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredEmpresas.map((empresa) => {
                     const credito = calcularPotencialCreditoInternacional(empresa);
-                    const perfil = analisarBaseClientes(empresa);
                     return (
                     <Card
                       key={empresa.cnpj}
@@ -541,14 +405,8 @@ export default function Empresas() {
                           </div>
                         </div>
 
-                        {/* Partner indicator */}
-                        {perfil.perfilIdeal && (
-                          <div className="flex items-center gap-1.5 pt-1 border-t">
-                            <Handshake className="h-3 w-3 text-amber-500" />
-                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">⭐ PARTNER IDEAL</span>
-                            <span className="text-[10px] text-muted-foreground ml-auto">{perfil.tipo.replace(/^[^\s]+\s/, "")}</span>
-                          </div>
-                        )}
+
+
 
                         {/* Contato direto */}
                         <div className="flex flex-wrap gap-1.5 pt-1 border-t">
@@ -737,170 +595,8 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
         </CardContent>
       </Card>
 
-      {/* PARTNER DE DISTRIBUIÇÃO - Crédito Internacional */}
-      {(() => {
-        const perfil = analisarBaseClientes(empresa);
-        return (
-        <Card className={`border-2 ${perfil.perfilIdeal ? "border-amber-300 dark:border-amber-800 bg-gradient-to-br from-card via-amber-50/10 to-card dark:to-amber-950/5" : "border-muted"}`}>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className={`rounded-xl p-2.5 shadow-lg ${perfil.perfilIdeal ? "bg-gradient-to-br from-amber-400 to-amber-600" : "bg-muted"}`}>
-                <Handshake className={`h-6 w-6 ${perfil.perfilIdeal ? "text-white" : "text-muted-foreground"}`} />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-lg">Partner para Venda de Crédito Internacional</CardTitle>
-                  {perfil.perfilIdeal && (
-                    <Badge className="bg-amber-500 text-white border-amber-600">⭐ Partner Ideal</Badge>
-                  )}
-                </div>
-                <CardDescription>
-                  Análise da base de clientes desta empresa para distribuição de crédito internacional
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {/* Nossa proposta */}
-            <div className="rounded-lg border bg-primary/5 p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <p className="text-sm font-bold text-primary">Nossa Proposta</p>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Buscamos empresas com <strong>grandes bases de clientes de alto valor</strong> para serem nossos partners na distribuição de crédito internacional. 
-                A empresa parceira oferece o produto aos seus clientes e ganha comissão sobre cada operação fechada.
-              </p>
-            </div>
 
-            {/* Perfil de clientes da empresa */}
-            <div className={`rounded-xl border-2 p-5 space-y-4 ${perfil.perfilIdeal ? "border-green-200 bg-green-50/50 dark:bg-green-950/10 dark:border-green-900" : "border-muted bg-muted/10"}`}>
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-bold flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  {perfil.tipo}
-                </p>
-                {perfil.perfilIdeal ? (
-                  <Badge className="bg-green-600 text-white">✅ Base Ideal</Badge>
-                ) : (
-                  <Badge variant="secondary">Base Moderada</Badge>
-                )}
-              </div>
-              
-              <p className="text-sm text-muted-foreground">{perfil.descricao}</p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="rounded-lg border bg-background p-3">
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Volume de Clientes</p>
-                  <p className="text-sm font-semibold">{perfil.volume}</p>
-                </div>
-                <div className="rounded-lg border bg-background p-3">
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Ticket Médio</p>
-                  <p className="text-sm font-semibold">{perfil.ticketMedio}</p>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1.5">Tipo de Clientes que Podem Comprar Crédito Internacional</p>
-                <p className="text-sm text-foreground">{perfil.exemploClientes}</p>
-              </div>
-            </div>
-
-            {/* Por que é um bom partner */}
-            <div className="rounded-lg border p-4 space-y-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                <TrendingUp className="h-3 w-3" />
-                POR QUE {(empresa.nome_fantasia || empresa.razao_social).toUpperCase()} É UM BOM PARTNER
-              </p>
-              <div className="space-y-2">
-                {perfil.perfilIdeal && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Star className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                    <span className="font-medium">Base de clientes com perfil ideal para crédito internacional</span>
-                  </div>
-                )}
-                {credito.fatores.map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm">
-                    <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
-                    <span>{f}</span>
-                  </div>
-                ))}
-                <div className="flex items-center gap-2 text-sm">
-                  <Briefcase className="h-4 w-4 text-primary flex-shrink-0" />
-                  <span>Setor: {empresa.cnae_fiscal_descricao}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Decisores para propor parceria */}
-            {empresa.qsa && empresa.qsa.length > 0 && (
-              <div className="space-y-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                  <Handshake className="h-3 w-3" />
-                  QUEM ABORDAR PARA PROPOR A PARCERIA ({credito.decisores} decisor{credito.decisores !== 1 ? "es" : ""})
-                </p>
-                {empresa.qsa.map((socio, i) => {
-                  const qualUpper = socio.qualificacao_socio?.toUpperCase() || "";
-                  const isAdmin = qualUpper.includes("ADMINISTRADOR") || qualUpper.includes("SÓCIO-ADMINISTRADOR");
-                  const isDiretor = qualUpper.includes("DIRETOR");
-                  const isPresidente = qualUpper.includes("PRESIDENTE");
-                  const isProcurador = qualUpper.includes("PROCURADOR");
-                  const isDecisor = isAdmin || isDiretor || isPresidente || isProcurador;
-
-                  if (!isDecisor) return null;
-
-                  const cargo = isPresidente ? "Presidente" : isDiretor ? "Diretor" : isAdmin ? "Administrador" : "Procurador";
-                  const motivo = isPresidente
-                    ? "Poder total para aprovar parcerias estratégicas"
-                    : isDiretor
-                    ? "Autoridade para aprovar novos canais de distribuição"
-                    : isAdmin
-                    ? "Pode assinar contratos de parceria"
-                    : "Poderes delegados para firmar acordos";
-
-                  const mensagem = `Olá ${socio.nome_socio.split(" ")[0]},\n\nIdentifiquei a ${empresa.nome_fantasia || empresa.razao_social} como um partner estratégico para distribuição de crédito internacional.\n\nSabemos que vocês possuem uma base sólida de clientes — ${perfil.volume.toLowerCase()} — e muitos deles podem se beneficiar de:\n\n• Linhas de crédito para importação/exportação\n• Trade finance e carta de crédito internacional\n• Financiamento em moeda estrangeira\n• ACC/ACE e proteção cambial\n\nNossa proposta é simples: vocês oferecem o produto aos seus clientes e ganham comissão sobre cada operação fechada. Sem risco, sem investimento.\n\nPodemos conversar 15 minutos sobre como funcionaria na prática?\n\nAguardo seu retorno.`;
-
-                  return (
-                    <PartnerCard
-                      key={i}
-                      socio={socio}
-                      empresa={empresa}
-                      cargo={cargo}
-                      motivo={motivo}
-                      mensagem={mensagem}
-                      formatCurrency={formatCurrency}
-                    />
-                  );
-                })}
-
-                {empresa.qsa.some(s => {
-                  const q = s.qualificacao_socio?.toUpperCase() || "";
-                  return !["ADMINISTRADOR", "SÓCIO-ADMINISTRADOR", "DIRETOR", "PRESIDENTE", "PROCURADOR"].some(x => q.includes(x));
-                }) && (
-                  <details className="mt-2">
-                    <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                      Ver sócios sem poder decisório ({empresa.qsa.length - credito.decisores})
-                    </summary>
-                    <div className="mt-2 space-y-1">
-                      {empresa.qsa.filter(s => {
-                        const q = s.qualificacao_socio?.toUpperCase() || "";
-                        return !["ADMINISTRADOR", "SÓCIO-ADMINISTRADOR", "DIRETOR", "PRESIDENTE", "PROCURADOR"].some(x => q.includes(x));
-                      }).map((s, i) => (
-                        <div key={i} className="flex items-center gap-2 p-2 rounded border bg-muted/20 text-sm">
-                          <AlertTriangle className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-muted-foreground">{s.nome_socio}</span>
-                          <span className="text-xs text-muted-foreground">— {s.qualificacao_socio}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        );
-      })()}
       <Card>
         <CardHeader>
           <div className="flex items-start gap-3">
@@ -1061,106 +757,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
   );
 }
 
-function PartnerCard({ socio, empresa, cargo, motivo, mensagem, formatCurrency }: {
-  socio: CnpjData["qsa"][0];
-  empresa: CnpjData;
-  cargo: string;
-  motivo: string;
-  mensagem: string;
-  formatCurrency: (v: number) => string;
-}) {
-  const [copied, setCopied] = useState(false);
-  const [showMsg, setShowMsg] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(mensagem);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const whatsappMsg = encodeURIComponent(mensagem);
-
-  return (
-    <div className="rounded-xl border-2 border-green-300 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20 p-4 space-y-3 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="rounded-full bg-gradient-to-br from-amber-400 to-amber-600 p-2">
-            <Star className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <p className="font-semibold text-foreground">{socio.nome_socio}</p>
-            <p className="text-xs text-muted-foreground">{socio.qualificacao_socio}</p>
-          </div>
-        </div>
-        <Badge className="bg-green-600 text-white border-green-700 text-xs">
-          ✅ Abordar
-        </Badge>
-      </div>
-
-      {/* Por que abordar */}
-      <div className="space-y-1.5 text-sm">
-        <div className="flex items-start gap-2">
-          <Award className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-          <span><strong>{cargo}</strong> — {motivo}</span>
-        </div>
-        {socio.capital_social_socio > 0 && (
-          <div className="flex items-start gap-2">
-            <TrendingUp className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-            <span>Capital pessoal: {formatCurrency(socio.capital_social_socio)}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Botão de proposta */}
-      <div className="space-y-2">
-        <Button
-          size="sm"
-          variant={showMsg ? "secondary" : "default"}
-          className="w-full gap-2"
-          onClick={() => setShowMsg(!showMsg)}
-        >
-          <Sparkles className="h-4 w-4" />
-          {showMsg ? "Ocultar Proposta" : "📩 Gerar Proposta de Parceria"}
-        </Button>
-
-        {showMsg && (
-          <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-            <Textarea
-              value={mensagem}
-              readOnly
-              className="text-xs min-h-[200px] bg-background"
-            />
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={handleCopy}>
-                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                {copied ? "Copiado!" : "Copiar"}
-              </Button>
-              <a
-                href={`https://wa.me/?text=${whatsappMsg}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button size="sm" variant="outline" className="gap-1.5 text-xs text-green-700">
-                  <MessageCircle className="h-3 w-3" /> Enviar WhatsApp
-                </Button>
-              </a>
-              <a href={`mailto:?subject=Proposta de Crédito Internacional — ${empresa.nome_fantasia || empresa.razao_social}&body=${encodeURIComponent(mensagem)}`}>
-                <Button size="sm" variant="outline" className="gap-1.5 text-xs">
-                  <Mail className="h-3 w-3" /> Enviar Email
-                </Button>
-              </a>
-              <a href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(socio.nome_socio)}`} target="_blank" rel="noopener noreferrer">
-                <Button size="sm" variant="outline" className="gap-1.5 text-xs">
-                  <ExternalLink className="h-3 w-3" /> LinkedIn
-                </Button>
-              </a>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function InfoItem({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
