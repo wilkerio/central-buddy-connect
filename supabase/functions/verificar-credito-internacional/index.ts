@@ -3,6 +3,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+function urlToTitle(url: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/\/$/, '').split('/').pop() || '';
+    const decoded = decodeURIComponent(path).replace(/[-_]/g, ' ').replace(/\.\w+$/, '');
+    if (decoded.length > 5) return decoded.substring(0, 80);
+    return u.hostname.replace('www.', '');
+  } catch { return url.substring(0, 80); }
+}
+
+function citationsToItems(citations: string[]) {
+  return citations.map((url: string) => ({
+    titulo: urlToTitle(url),
+    descricao: '',
+    url,
+    fonte: (() => { try { return new URL(url).hostname; } catch { return 'web'; } })(),
+  }));
+}
+
 async function perplexitySearch(apiKey: string, query: string): Promise<{ content: string; citations: string[] }> {
   const response = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
@@ -84,7 +103,6 @@ Deno.serve(async (req) => {
       searches.map(async (search) => {
         try {
           const { content, citations } = await perplexitySearch(apiKey, search.query);
-
           const textLower = content.toLowerCase();
           for (const kw of keywords) {
             if (textLower.includes(kw) && !evidencias.includes(kw)) {
@@ -93,15 +111,13 @@ Deno.serve(async (req) => {
             }
           }
 
+          const items = citationsToItems(citations);
+          if (items.length > 0 && content) items[0].descricao = content.substring(0, 200);
+
           results[search.tipo] = {
             label: search.label,
-            encontrados: citations.length,
-            items: citations.map((url: string) => ({
-              titulo: url,
-              descricao: '',
-              url,
-              fonte: new URL(url).hostname,
-            })),
+            encontrados: items.length,
+            items,
             resumo: content,
           };
         } catch (err) {
@@ -115,29 +131,15 @@ Deno.serve(async (req) => {
     let status: string;
     let confianca: string;
 
-    if (indicadoresPositivos >= 5 && totalResultados >= 8) {
-      status = 'confirmado';
-      confianca = 'alta';
-    } else if (indicadoresPositivos >= 3 || totalResultados >= 5) {
-      status = 'provavel';
-      confianca = 'média';
-    } else if (indicadoresPositivos >= 1 || totalResultados >= 2) {
-      status = 'possivel';
-      confianca = 'baixa';
-    } else {
-      status = 'nao_encontrado';
-      confianca = 'n/a';
-    }
+    if (indicadoresPositivos >= 5 && totalResultados >= 8) { status = 'confirmado'; confianca = 'alta'; }
+    else if (indicadoresPositivos >= 3 || totalResultados >= 5) { status = 'provavel'; confianca = 'média'; }
+    else if (indicadoresPositivos >= 1 || totalResultados >= 2) { status = 'possivel'; confianca = 'baixa'; }
+    else { status = 'nao_encontrado'; confianca = 'n/a'; }
 
     return new Response(
       JSON.stringify({
-        success: true,
-        status,
-        confianca,
-        indicadoresPositivos,
-        evidencias: evidencias.slice(0, 10),
-        totalResultados,
-        categorias: results,
+        success: true, status, confianca, indicadoresPositivos,
+        evidencias: evidencias.slice(0, 10), totalResultados, categorias: results,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

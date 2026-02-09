@@ -3,6 +3,27 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+function urlToTitle(url: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/\/$/, '').split('/').pop() || '';
+    const decoded = decodeURIComponent(path).replace(/[-_]/g, ' ').replace(/\.\w+$/, '');
+    if (decoded.length > 5) return decoded.substring(0, 80);
+    return u.hostname.replace('www.', '');
+  } catch { return url.substring(0, 80); }
+}
+
+function citationsToItems(citations: string[]) {
+  return citations.map((url: string) => ({
+    titulo: urlToTitle(url),
+    descricao: '',
+    url,
+    fonte: (() => { try { return new URL(url).hostname; } catch { return 'web'; } })(),
+    valores: [] as string[],
+    areas: [] as string[],
+  }));
+}
+
 async function perplexitySearch(apiKey: string, query: string): Promise<{ content: string; citations: string[] }> {
   const response = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
@@ -78,24 +99,17 @@ Deno.serve(async (req) => {
       searches.map(async (search) => {
         try {
           const { content, citations } = await perplexitySearch(apiKey, search.query);
-
           const valores = content.match(/R\$\s?[\d.,]+(?:\s?(?:milh[ãõ]|bilh[ãõ]|mi|bi|mil))?/gi) || [];
           const areas = content.match(/[\d.,]+\s?m²/gi) || [];
 
+          const items = citationsToItems(citations);
+          if (items.length > 0 && content) items[0].descricao = content.substring(0, 200);
+
           results[search.tipo] = {
             label: search.label,
-            encontrados: citations.length,
-            items: citations.map((url: string) => ({
-              titulo: url,
-              descricao: '',
-              url,
-              fonte: new URL(url).hostname,
-              valores: [],
-              areas: [],
-            })),
+            encontrados: items.length,
+            items,
             resumo: content,
-            valores: [...new Set(valores)].slice(0, 4),
-            areas: [...new Set(areas)].slice(0, 3),
           };
         } catch (err) {
           console.error(`Error searching ${search.tipo}:`, err);
@@ -104,25 +118,20 @@ Deno.serve(async (req) => {
       })
     );
 
-    // Estimate patrimony based on capital social and porte
     const porteUpper = (porte || '').toUpperCase();
     let patrimonioMultiplicador = 2;
     if (porteUpper.includes('GRANDE') || porteUpper.includes('DEMAIS')) patrimonioMultiplicador = 5;
     else if (porteUpper.includes('MEDIO') || porteUpper.includes('MÉDIA')) patrimonioMultiplicador = 3;
 
     const patrimonioEstimado = (capital_social || 100000) * patrimonioMultiplicador;
-    const garantiaMinima = Math.round(patrimonioEstimado * 0.3);
-    const garantiaMaxima = Math.round(patrimonioEstimado * 0.7);
 
     return new Response(
       JSON.stringify({
-        success: true,
-        cnpj: cleanCnpj,
-        garantias: results,
+        success: true, cnpj: cleanCnpj, garantias: results,
         estimativa: {
           patrimonioEstimado,
-          garantiaMinima,
-          garantiaMaxima,
+          garantiaMinima: Math.round(patrimonioEstimado * 0.3),
+          garantiaMaxima: Math.round(patrimonioEstimado * 0.7),
           multiplicador: patrimonioMultiplicador,
           capacidadeGarantia: patrimonioEstimado >= 10_000_000 ? 'alta' :
                               patrimonioEstimado >= 1_000_000 ? 'média' :
