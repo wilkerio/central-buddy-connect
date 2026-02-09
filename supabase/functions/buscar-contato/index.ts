@@ -18,86 +18,83 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+    const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Firecrawl não configurado' }),
+        JSON.stringify({ success: false, error: 'Perplexity não configurado' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Build search query based on type
     const empresaNome = empresa || '';
-    let query: string;
-    if (tipo === 'email') {
-      query = `${nome} ${empresaNome} email contato @`;
-    } else {
-      query = `${nome} ${empresaNome} whatsapp telefone celular contato`;
-    }
-
     console.log(`Searching ${tipo} for: ${nome} (${empresaNome})`);
 
-    // Use Firecrawl search to find contact info
-    const response = await fetch('https://api.firecrawl.dev/v1/search', {
+    let prompt: string;
+    if (tipo === 'email') {
+      prompt = `Pesquise o email de contato profissional de "${nome}" da empresa "${empresaNome}". Informe todos os emails encontrados e suas fontes.`;
+    } else {
+      prompt = `Pesquise o telefone/WhatsApp de contato de "${nome}" da empresa "${empresaNome}". Informe todos os números encontrados e suas fontes.`;
+    }
+
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        query,
-        limit: 5,
+        model: 'sonar',
+        messages: [
+          { role: 'system', content: 'Você é um assistente de pesquisa de contatos profissionais. Informe apenas dados públicos encontrados na web. Sempre em português.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.1,
       }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Firecrawl search error:', data);
+      console.error('Perplexity error:', data);
       return new Response(
-        JSON.stringify({ success: false, error: data.error || `Erro ${response.status}` }),
+        JSON.stringify({ success: false, error: data.error?.message || `Erro ${response.status}` }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Extract contacts from results
-    const results = data.data || [];
+    const content = data.choices?.[0]?.message?.content || '';
+    const citations = data.citations || [];
+
+    // Extract contacts from AI response
     const contacts: { valor: string; fonte: string; tipo: string }[] = [];
 
-    for (const result of results) {
-      const text = `${result.title || ''} ${result.description || ''} ${result.markdown || ''}`;
-      
-      if (tipo === 'email') {
-        // Extract emails
-        const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        const emails = text.match(emailRegex) || [];
-        for (const email of emails) {
-          const lower = email.toLowerCase();
-          // Filter out common non-personal emails
-          if (!lower.includes('example') && !lower.includes('sentry') && !lower.includes('noreply') && !lower.includes('no-reply')) {
-            if (!contacts.find(c => c.valor === lower)) {
-              contacts.push({
-                valor: lower,
-                fonte: result.url || result.title || 'Google',
-                tipo: 'email',
-              });
-            }
+    if (tipo === 'email') {
+      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+      const emails = content.match(emailRegex) || [];
+      for (const email of emails) {
+        const lower = email.toLowerCase();
+        if (!lower.includes('example') && !lower.includes('sentry') && !lower.includes('noreply') && !lower.includes('no-reply')) {
+          if (!contacts.find(c => c.valor === lower)) {
+            contacts.push({
+              valor: lower,
+              fonte: citations[0] || 'Perplexity',
+              tipo: 'email',
+            });
           }
         }
-      } else {
-        // Extract phone numbers (Brazilian format)
-        const phoneRegex = /(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)?\d{4,5}[-.\s]?\d{4}/g;
-        const phones = text.match(phoneRegex) || [];
-        for (const phone of phones) {
-          const cleaned = phone.replace(/\D/g, '');
-          if (cleaned.length >= 10 && cleaned.length <= 13) {
-            if (!contacts.find(c => c.valor.replace(/\D/g, '') === cleaned)) {
-              contacts.push({
-                valor: phone.trim(),
-                fonte: result.url || result.title || 'Google',
-                tipo: 'telefone',
-              });
-            }
+      }
+    } else {
+      const phoneRegex = /(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)?\d{4,5}[-.\s]?\d{4}/g;
+      const phones = content.match(phoneRegex) || [];
+      for (const phone of phones) {
+        const cleaned = phone.replace(/\D/g, '');
+        if (cleaned.length >= 10 && cleaned.length <= 13) {
+          if (!contacts.find(c => c.valor.replace(/\D/g, '') === cleaned)) {
+            contacts.push({
+              valor: phone.trim(),
+              fonte: citations[0] || 'Perplexity',
+              tipo: 'telefone',
+            });
           }
         }
       }
@@ -107,7 +104,8 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         contatos: contacts.slice(0, 5),
-        totalResultados: results.length,
+        totalResultados: citations.length,
+        resumo: content,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

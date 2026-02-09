@@ -3,6 +3,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+async function perplexitySearch(apiKey: string, query: string): Promise<{ content: string; citations: string[] }> {
+  const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'sonar',
+      messages: [
+        { role: 'system', content: 'Você é um analista de crédito bancário brasileiro. Responda de forma estruturada e objetiva, incluindo valores, termos bancários e indicadores quando disponíveis. Sempre em português.' },
+        { role: 'user', content: query },
+      ],
+      temperature: 0.1,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error?.message || `Erro ${response.status}`);
+  return { content: data.choices?.[0]?.message?.content || '', citations: data.citations || [] };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -18,10 +40,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+    const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Firecrawl não configurado' }),
+        JSON.stringify({ success: false, error: 'Perplexity não configurado' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -32,105 +54,71 @@ Deno.serve(async (req) => {
 
     console.log(`Buscando endividamento bancário para: ${nome} (${cnpjFormatted})`);
 
-    // Buscar diferentes aspectos de endividamento bancário em paralelo
     const searches = [
       {
         tipo: 'scr_operacoes',
         label: 'Operações de Crédito (SCR)',
-        query: `"${cnpjFormatted}" OR "${cleanCnpj}" OR "${nome}" SCR "sistema de informações de crédito" operação crédito bancário empréstimo financiamento`,
+        query: `Pesquise sobre operações de crédito bancário (SCR - Sistema de Informações de Crédito) da empresa "${nome}" CNPJ ${cnpjFormatted}. Informe empréstimos, financiamentos e operações de crédito.`,
       },
       {
         tipo: 'emprestimos_financiamentos',
         label: 'Empréstimos e Financiamentos',
-        query: `"${cnpjFormatted}" OR "${cleanCnpj}" OR "${nome}" empréstimo financiamento bancário crédito capital de giro cheque especial`,
+        query: `Pesquise sobre empréstimos, financiamentos bancários, capital de giro e cheque especial da empresa "${nome}" CNPJ ${cnpjFormatted}. Informe valores e instituições financeiras.`,
       },
       {
         tipo: 'debentures_titulos',
         label: 'Debêntures e Títulos de Dívida',
-        query: `"${cnpjFormatted}" OR "${cleanCnpj}" OR "${nome}" debênture emissão título dívida CRI CRA nota promissória`,
+        query: `Pesquise sobre debêntures, CRI, CRA, notas promissórias e títulos de dívida emitidos pela empresa "${nome}" CNPJ ${cnpjFormatted}. Informe valores e condições.`,
       },
       {
         tipo: 'credito_rural_bndes',
         label: 'Crédito Rural e BNDES',
-        query: `"${cnpjFormatted}" OR "${cleanCnpj}" OR "${nome}" BNDES crédito rural financiamento agrícola FINAME FINEM`,
+        query: `Pesquise sobre financiamentos do BNDES, FINAME, FINEM e crédito rural da empresa "${nome}" CNPJ ${cnpjFormatted}. Informe valores e programas.`,
       },
       {
         tipo: 'inadimplencia',
         label: 'Inadimplência Bancária',
-        query: `"${cnpjFormatted}" OR "${cleanCnpj}" OR "${nome}" inadimplência bancária atraso pagamento banco renegociação dívida bancária`,
+        query: `Pesquise sobre inadimplência bancária, atrasos de pagamento e renegociação de dívidas bancárias da empresa "${nome}" CNPJ ${cnpjFormatted}.`,
       },
     ];
 
     const results: Record<string, any> = {};
+    const termosAlvo = [
+      'empréstimo', 'financiamento', 'crédito', 'capital de giro', 'cheque especial',
+      'debênture', 'CRI', 'CRA', 'nota promissória', 'BNDES', 'FINAME', 'FINEM',
+      'SCR', 'operação de crédito', 'inadimplência', 'renegociação', 'refinanciamento',
+      'leasing', 'CDC', 'conta garantida', 'desconto de duplicatas', 'antecipação de recebíveis',
+      'factoring', 'FIDC', 'securitização', 'spread bancário', 'taxa de juros',
+      'crédito rural', 'custeio', 'investimento agropecuário',
+    ];
 
     await Promise.all(
       searches.map(async (search) => {
         try {
-          const response = await fetch('https://api.firecrawl.dev/v1/search', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              query: search.query,
-              limit: 5,
-            }),
-          });
+          const { content, citations } = await perplexitySearch(apiKey, search.query);
 
-          const data = await response.json();
-
-          if (response.ok) {
-            const items = (data.data || []).map((r: any) => ({
-              titulo: r.title || 'Sem título',
-              descricao: r.description || '',
-              url: r.url || '',
-              fonte: r.url ? new URL(r.url).hostname : 'desconhecida',
-            }));
-
-            // Extrair valores monetários
-            const valores: string[] = [];
-            // Extrair termos bancários relevantes
-            const termosBancarios: string[] = [];
-            const termosAlvo = [
-              'empréstimo', 'financiamento', 'crédito', 'capital de giro', 'cheque especial',
-              'debênture', 'CRI', 'CRA', 'nota promissória', 'BNDES', 'FINAME', 'FINEM',
-              'SCR', 'operação de crédito', 'inadimplência', 'renegociação', 'refinanciamento',
-              'leasing', 'CDC', 'conta garantida', 'desconto de duplicatas', 'antecipação de recebíveis',
-              'factoring', 'FIDC', 'securitização', 'spread bancário', 'taxa de juros',
-              'crédito rural', 'custeio', 'investimento agropecuário',
-            ];
-
-            for (const item of items) {
-              const text = `${item.titulo} ${item.descricao}`.toLowerCase();
-              const matches = `${item.titulo} ${item.descricao}`.match(/R\$\s?[\d.,]+/g);
-              if (matches) valores.push(...matches);
-
-              for (const termo of termosAlvo) {
-                if (text.includes(termo.toLowerCase()) && !termosBancarios.includes(termo)) {
-                  termosBancarios.push(termo);
-                }
-              }
+          const valores = content.match(/R\$\s?[\d.,]+/g) || [];
+          const termosBancarios: string[] = [];
+          const textLower = content.toLowerCase();
+          for (const termo of termosAlvo) {
+            if (textLower.includes(termo.toLowerCase())) {
+              termosBancarios.push(termo);
             }
-
-            results[search.tipo] = {
-              label: search.label,
-              encontrados: items.length,
-              items,
-              valores: [...new Set(valores)],
-              termosBancarios: [...new Set(termosBancarios)],
-            };
-          } else {
-            console.error(`Search error for ${search.tipo}:`, data);
-            results[search.tipo] = {
-              label: search.label,
-              encontrados: 0,
-              items: [],
-              valores: [],
-              termosBancarios: [],
-              error: data.error || `Erro ${response.status}`,
-            };
           }
+
+          results[search.tipo] = {
+            label: search.label,
+            encontrados: citations.length,
+            items: citations.map((url: string) => ({
+              titulo: url,
+              descricao: '',
+              url,
+              fonte: new URL(url).hostname,
+            })),
+            valores: [...new Set(valores)],
+            termosBancarios: [...new Set(termosBancarios)],
+            resumo: content,
+          };
         } catch (err) {
           console.error(`Error searching ${search.tipo}:`, err);
           results[search.tipo] = {
@@ -147,12 +135,10 @@ Deno.serve(async (req) => {
 
     // Calcular score de endividamento
     const totalRegistros = Object.values(results).reduce((acc: number, s: any) => acc + (s.encontrados || 0), 0);
-    const totalValores = Object.values(results).reduce((acc: number, s: any) => acc + (s.valores?.length || 0), 0);
     const todosTermos = Object.values(results).reduce((acc: string[], s: any) => [...acc, ...(s.termosBancarios || [])], [] as string[]);
     const termosUnicos = [...new Set(todosTermos)];
     const todosValores = Object.values(results).reduce((acc: string[], s: any) => [...acc, ...(s.valores || [])], [] as string[]);
 
-    // Classificação de nível de endividamento
     let nivel: string;
     let status: string;
     if (totalRegistros >= 15 || termosUnicos.length >= 10) {
@@ -179,7 +165,7 @@ Deno.serve(async (req) => {
         nivel,
         status,
         totalRegistros,
-        totalValoresEncontrados: totalValores,
+        totalValoresEncontrados: todosValores.length,
         termosIdentificados: termosUnicos,
         valoresEncontrados: [...new Set(todosValores)].slice(0, 10),
         categorias: results,

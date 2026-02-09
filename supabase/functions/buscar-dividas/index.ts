@@ -3,6 +3,34 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+async function perplexitySearch(apiKey: string, query: string): Promise<{ content: string; citations: string[] }> {
+  const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'sonar',
+      messages: [
+        { role: 'system', content: 'Você é um analista de crédito brasileiro. Responda de forma estruturada e objetiva, incluindo valores monetários quando disponíveis. Sempre em português.' },
+        { role: 'user', content: query },
+      ],
+      temperature: 0.1,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error?.message || `Erro ${response.status}`);
+  }
+
+  return {
+    content: data.choices?.[0]?.message?.content || '',
+    citations: data.citations || [],
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -18,10 +46,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+    const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Firecrawl não configurado' }),
+        JSON.stringify({ success: false, error: 'Perplexity não configurado' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -32,22 +60,21 @@ Deno.serve(async (req) => {
 
     console.log(`Buscando dívidas para: ${nome} (${cnpjFormatted})`);
 
-    // Search for different types of debts in parallel
     const searches = [
       {
         tipo: 'divida_ativa',
         label: 'Dívida Ativa da União',
-        query: `"${cnpjFormatted}" OR "${cleanCnpj}" dívida ativa PGFN site:pgfn.fazenda.gov.br OR site:regularize.pgfn.gov.br`,
+        query: `Pesquise sobre dívida ativa da União (PGFN) da empresa "${nome}" CNPJ ${cnpjFormatted}. Informe se há registros de débitos inscritos em dívida ativa, valores, e situação atual.`,
       },
       {
         tipo: 'protestos',
         label: 'Protestos em Cartório',
-        query: `"${cnpjFormatted}" OR "${cleanCnpj}" OR "${nome}" protesto cartório títulos protestados`,
+        query: `Pesquise sobre protestos em cartório da empresa "${nome}" CNPJ ${cnpjFormatted}. Informe se há títulos protestados, valores e cartórios envolvidos.`,
       },
       {
         tipo: 'processos',
         label: 'Processos Judiciais',
-        query: `"${cnpjFormatted}" OR "${cleanCnpj}" OR "${nome}" processo judicial execução fiscal ação`,
+        query: `Pesquise sobre processos judiciais e execuções fiscais da empresa "${nome}" CNPJ ${cnpjFormatted}. Informe processos relevantes, valores envolvidos e situação.`,
       },
     ];
 
@@ -56,52 +83,23 @@ Deno.serve(async (req) => {
     await Promise.all(
       searches.map(async (search) => {
         try {
-          const response = await fetch('https://api.firecrawl.dev/v1/search', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              query: search.query,
-              limit: 5,
-            }),
-          });
+          const { content, citations } = await perplexitySearch(apiKey, search.query);
 
-          const data = await response.json();
+          // Extract monetary values from content
+          const valores = content.match(/R\$\s?[\d.,]+/g) || [];
 
-          if (response.ok) {
-            const items = (data.data || []).map((r: any) => ({
-              titulo: r.title || 'Sem título',
-              descricao: r.description || '',
-              url: r.url || '',
-              fonte: r.url ? new URL(r.url).hostname : 'desconhecida',
-            }));
-
-            // Extract monetary values from descriptions
-            const valores: string[] = [];
-            for (const item of items) {
-              const text = `${item.titulo} ${item.descricao}`;
-              const matches = text.match(/R\$\s?[\d.,]+/g);
-              if (matches) valores.push(...matches);
-            }
-
-            results[search.tipo] = {
-              label: search.label,
-              encontrados: items.length,
-              items,
-              valores: [...new Set(valores)],
-            };
-          } else {
-            console.error(`Search error for ${search.tipo}:`, data);
-            results[search.tipo] = {
-              label: search.label,
-              encontrados: 0,
-              items: [],
-              valores: [],
-              error: data.error || `Erro ${response.status}`,
-            };
-          }
+          results[search.tipo] = {
+            label: search.label,
+            encontrados: citations.length,
+            items: citations.map((url: string) => ({
+              titulo: url,
+              descricao: '',
+              url,
+              fonte: new URL(url).hostname,
+            })),
+            valores: [...new Set(valores)],
+            resumo: content,
+          };
         } catch (err) {
           console.error(`Error searching ${search.tipo}:`, err);
           results[search.tipo] = {
