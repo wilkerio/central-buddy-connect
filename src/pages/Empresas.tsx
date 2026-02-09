@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Building2, Landmark, ArrowLeft, Users, Search, X } from "lucide-react";
+import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Empresas() {
@@ -216,37 +216,108 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
               label="Endereço"
               value={`${empresa.logradouro}, ${empresa.numero} - ${empresa.bairro}, ${empresa.municipio}/${empresa.uf}`}
             />
-            {empresa.email && <InfoItem label="Email" value={empresa.email} />}
-            {empresa.ddd_telefone_1 && <InfoItem label="Telefone" value={empresa.ddd_telefone_1} />}
           </div>
         </CardContent>
       </Card>
 
+      {/* Contato da Empresa */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Phone className="h-4 w-4" />
+            Contato da Empresa
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            {empresa.ddd_telefone_1 && (
+              <>
+                <a
+                  href={`https://wa.me/55${empresa.ddd_telefone_1.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="outline" className="gap-2 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700">
+                    <MessageCircle className="h-4 w-4" />
+                    WhatsApp
+                  </Button>
+                </a>
+                <a href={`tel:${empresa.ddd_telefone_1}`}>
+                  <Button variant="outline" className="gap-2">
+                    <Phone className="h-4 w-4" />
+                    {empresa.ddd_telefone_1}
+                  </Button>
+                </a>
+              </>
+            )}
+            {empresa.email && (
+              <a href={`mailto:${empresa.email}`}>
+                <Button variant="outline" className="gap-2 text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+                  <Mail className="h-4 w-4" />
+                  {empresa.email}
+                </Button>
+              </a>
+            )}
+            {!empresa.ddd_telefone_1 && !empresa.email && (
+              <p className="text-sm text-muted-foreground">Nenhum contato disponível na Receita Federal.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quadro Societário com links de contato */}
       {empresa.qsa && empresa.qsa.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Users className="h-4 w-4" />
-              Quadro Societário ({empresa.qsa.length})
+              Sócios & Contato ({empresa.qsa.length})
             </CardTitle>
+            <CardDescription>Links para buscar os sócios nas redes sociais</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Qualificação</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {empresa.qsa.map((socio, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="font-medium">{socio.nome_socio}</TableCell>
-                    <TableCell>{socio.qualificacao_socio}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="space-y-4">
+              {empresa.qsa.map((socio, i) => (
+                <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border bg-muted/30">
+                  <div>
+                    <p className="font-medium text-foreground">{socio.nome_socio}</p>
+                    <p className="text-xs text-muted-foreground">{socio.qualificacao_socio}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(socio.nome_socio)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs text-blue-700 border-blue-200 hover:bg-blue-50">
+                        <ExternalLink className="h-3 w-3" />
+                        LinkedIn
+                      </Button>
+                    </a>
+                    <a
+                      href={`https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(socio.nome_socio)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs text-pink-600 border-pink-200 hover:bg-pink-50">
+                        <ExternalLink className="h-3 w-3" />
+                        Instagram
+                      </Button>
+                    </a>
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(socio.nome_socio + " " + (empresa.nome_fantasia || empresa.razao_social) + " contato email")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                        <Search className="h-3 w-3" />
+                        Google
+                      </Button>
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
