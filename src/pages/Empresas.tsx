@@ -29,6 +29,8 @@ export default function Empresas() {
   const [currentSearch, setCurrentSearch] = useState<string | null>(null);
   const [filterText, setFilterText] = useState("");
   const [filterIf, setFilterIf] = useState("");
+  const [cnpjManual, setCnpjManual] = useState("");
+  const [isManualLoading, setIsManualLoading] = useState(false);
   const queueRef = useRef<string[]>([]);
   const fetchedRef = useRef<Set<string>>(new Set());
 
@@ -150,6 +152,42 @@ export default function Empresas() {
             </TabsList>
 
             <TabsContent value="empresas" className="space-y-4">
+              {/* Manual CNPJ search */}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const cleaned = cnpjManual.replace(/\D/g, "");
+                  if (cleaned.length !== 14) return;
+                  setIsManualLoading(true);
+                  try {
+                    const data = await fetchCnpj(cleaned);
+                    setEmpresas(prev => {
+                      const exists = prev.find(emp => emp.cnpj === data.cnpj);
+                      if (exists) return prev;
+                      return [data, ...prev];
+                    });
+                    setSelectedEmpresa(data);
+                    setCnpjManual("");
+                  } catch (err) {
+                    console.error("Erro buscando CNPJ manual:", err);
+                  } finally {
+                    setIsManualLoading(false);
+                  }
+                }}
+                className="flex gap-2"
+              >
+                <Input
+                  placeholder="Digitar CNPJ (ex: 00.000.000/0001-91)"
+                  value={cnpjManual}
+                  onChange={(e) => setCnpjManual(e.target.value)}
+                  className="max-w-xs"
+                />
+                <Button type="submit" disabled={cnpjManual.replace(/\D/g, "").length !== 14 || isManualLoading}>
+                  {isManualLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  <span className="ml-2">Buscar CNPJ</span>
+                </Button>
+              </form>
+
               <div className="flex items-center gap-3">
                 <div className="relative flex-1 max-w-sm">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
