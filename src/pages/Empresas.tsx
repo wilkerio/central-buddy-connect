@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { fetchCnpj, fetchAllInstituicoesFinanceiras, CNPJS_POOL, type CnpjData } from "@/lib/empresa-api";
 import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const SEARCH_INTERVAL = 8000; // 8 seconds between searches
+const SEARCH_INTERVAL = 8000;
 
 function shuffleArray<T>(arr: T[]): T[] {
   const shuffled = [...arr];
@@ -22,13 +23,34 @@ function shuffleArray<T>(arr: T[]): T[] {
   return shuffled;
 }
 
+// Save empresa to database
+async function saveEmpresaToDb(empresa: CnpjData) {
+  try {
+    await supabase.from("empresas_cache").upsert(
+      { cnpj: empresa.cnpj, data: empresa as any },
+      { onConflict: "cnpj" }
+    );
+  } catch (err) {
+    console.error("Erro salvando no banco:", err);
+  }
+}
+
+// Load all cached empresas from database
+async function loadEmpresasFromDb(): Promise<CnpjData[]> {
+  const { data, error } = await supabase
+    .from("empresas_cache")
+    .select("cnpj, data")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erro carregando do banco:", error);
+    return [];
+  }
+  return (data || []).map((row: any) => row.data as CnpjData);
+}
+
 export default function Empresas() {
-  const [empresas, setEmpresas] = useState<CnpjData[]>(() => {
-    try {
-      const saved = localStorage.getItem("empresas-cache");
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  const [empresas, setEmpresas] = useState<CnpjData[]>([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState<CnpjData | null>(null);
   const [isRunning, setIsRunning] = useState(true);
   const [currentSearch, setCurrentSearch] = useState<string | null>(null);
@@ -36,23 +58,20 @@ export default function Empresas() {
   const [filterIf, setFilterIf] = useState("");
   const [cnpjManual, setCnpjManual] = useState("");
   const [isManualLoading, setIsManualLoading] = useState(false);
+  const [dbLoaded, setDbLoaded] = useState(false);
   const queueRef = useRef<string[]>([]);
-  const fetchedRef = useRef<Set<string>>(new Set(
-    (() => {
-      try {
-        const saved = localStorage.getItem("empresas-cache");
-        const parsed: CnpjData[] = saved ? JSON.parse(saved) : [];
-        return parsed.map(e => e.cnpj);
-      } catch { return []; }
-    })()
-  ));
+  const fetchedRef = useRef<Set<string>>(new Set());
 
-  // Save to localStorage whenever empresas changes
+  // Load from database on mount
   useEffect(() => {
-    try {
-      localStorage.setItem("empresas-cache", JSON.stringify(empresas));
-    } catch { /* storage full */ }
-  }, [empresas]);
+    loadEmpresasFromDb().then((cached) => {
+      if (cached.length > 0) {
+        setEmpresas(cached);
+        fetchedRef.current = new Set(cached.map(e => e.cnpj));
+      }
+      setDbLoaded(true);
+    });
+  }, []);
 
   // Auto-load financial institutions
   const ifQuery = useQuery({
@@ -87,6 +106,7 @@ export default function Empresas() {
         if (exists) return prev;
         return [data, ...prev];
       });
+      saveEmpresaToDb(data);
     } catch (err) {
       console.error("Erro buscando CNPJ:", cnpj, err);
     }
@@ -94,14 +114,14 @@ export default function Empresas() {
   }, []);
 
   useEffect(() => {
-    if (!isRunning) return;
+    if (!isRunning || !dbLoaded) return;
 
     // Initial fetch immediately
     fetchNext();
 
     const interval = setInterval(fetchNext, SEARCH_INTERVAL);
     return () => clearInterval(interval);
-  }, [isRunning, fetchNext]);
+  }, [isRunning, dbLoaded, fetchNext]);
 
   const filteredEmpresas = empresas.filter(e =>
     !filterText ||
@@ -187,6 +207,7 @@ export default function Empresas() {
                       return [data, ...prev];
                     });
                     setSelectedEmpresa(data);
+                    saveEmpresaToDb(data);
                     setCnpjManual("");
                   } catch (err) {
                     console.error("Erro buscando CNPJ manual:", err);
