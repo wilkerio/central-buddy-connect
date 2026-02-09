@@ -253,6 +253,12 @@ export default function Empresas() {
             {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             {isRunning ? "Pausar" : "Retomar"}
           </Button>
+          <Link to="/internacionalizacao/analise">
+            <Button variant="outline" size="sm" className="gap-2">
+              <Globe className="h-4 w-4" />
+              Análise ACI
+            </Button>
+          </Link>
         </div>
         {/* Search status bar */}
         {isRunning && currentSearch && (

@@ -38,6 +38,66 @@ export type Database = {
         }
         Relationships: []
       }
+      internationalization_analyses: {
+        Row: {
+          analyst_notes: string | null
+          cnpj: string
+          collaterals: Json
+          company_data: Json
+          created_at: string
+          eligible_modalities: Json | null
+          estimated_credit_amount_usd: number | null
+          financial_data: Json
+          id: string
+          internationalization_capacity: Json
+          liabilities: Json
+          modality_results: Json | null
+          overall_score: number | null
+          razao_social: string
+          risk_classification: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          analyst_notes?: string | null
+          cnpj: string
+          collaterals?: Json
+          company_data?: Json
+          created_at?: string
+          eligible_modalities?: Json | null
+          estimated_credit_amount_usd?: number | null
+          financial_data?: Json
+          id?: string
+          internationalization_capacity?: Json
+          liabilities?: Json
+          modality_results?: Json | null
+          overall_score?: number | null
+          razao_social: string
+          risk_classification?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          analyst_notes?: string | null
+          cnpj?: string
+          collaterals?: Json
+          company_data?: Json
+          created_at?: string
+          eligible_modalities?: Json | null
+          estimated_credit_amount_usd?: number | null
+          financial_data?: Json
+          id?: string
+          internationalization_capacity?: Json
+          liabilities?: Json
+          modality_results?: Json | null
+          overall_score?: number | null
+          razao_social?: string
+          risk_classification?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
