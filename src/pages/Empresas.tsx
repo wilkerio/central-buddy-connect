@@ -276,22 +276,73 @@ export default function Empresas() {
                           <CardDescription className="text-xs truncate">{empresa.razao_social}</CardDescription>
                         )}
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="space-y-2">
                         <p className="text-lg font-bold text-primary">
                           {formatCurrency(empresa.capital_social)}
                         </p>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <Badge variant={empresa.situacao_cadastral === "ATIVA" ? "default" : "destructive"} className="text-xs">
                             {empresa.situacao_cadastral}
                           </Badge>
                           <span className="text-xs text-muted-foreground">{empresa.porte}</span>
-                          {empresa.qsa && (
-                            <span className="text-xs text-muted-foreground">{empresa.qsa.length} sócios</span>
-                          )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-2 truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                           {empresa.municipio}/{empresa.uf}
                         </p>
+
+                        {/* Contato direto */}
+                        <div className="flex flex-wrap gap-1.5 pt-1 border-t">
+                          {empresa.email && (
+                            <a href={`mailto:${empresa.email}`} onClick={(e) => e.stopPropagation()} title={empresa.email}>
+                              <Badge variant="secondary" className="gap-1 text-xs cursor-pointer hover:bg-accent">
+                                <Mail className="h-3 w-3" />
+                                Email
+                              </Badge>
+                            </a>
+                          )}
+                          {empresa.ddd_telefone_1 && (
+                            <a
+                              href={`https://wa.me/55${empresa.ddd_telefone_1.replace(/\D/g, "")}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              title={empresa.ddd_telefone_1}
+                            >
+                              <Badge variant="secondary" className="gap-1 text-xs cursor-pointer hover:bg-accent text-green-700">
+                                <MessageCircle className="h-3 w-3" />
+                                WhatsApp
+                              </Badge>
+                            </a>
+                          )}
+                          {empresa.ddd_telefone_1 && (
+                            <a href={`tel:${empresa.ddd_telefone_1}`} onClick={(e) => e.stopPropagation()} title={empresa.ddd_telefone_1}>
+                              <Badge variant="secondary" className="gap-1 text-xs cursor-pointer hover:bg-accent">
+                                <Phone className="h-3 w-3" />
+                                {empresa.ddd_telefone_1}
+                              </Badge>
+                            </a>
+                          )}
+                        </div>
+
+                        {/* Sócios resumo */}
+                        {empresa.qsa && empresa.qsa.length > 0 && (
+                          <div className="pt-1 border-t">
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                              <Users className="h-3 w-3" />
+                              {empresa.qsa.length} sócio{empresa.qsa.length > 1 ? "s" : ""}
+                            </p>
+                            <div className="space-y-0.5">
+                              {empresa.qsa.slice(0, 3).map((socio, i) => (
+                                <p key={i} className="text-xs text-foreground truncate" title={socio.qualificacao_socio}>
+                                  {socio.nome_socio}
+                                </p>
+                              ))}
+                              {empresa.qsa.length > 3 && (
+                                <p className="text-xs text-muted-foreground">+{empresa.qsa.length - 3} mais...</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
