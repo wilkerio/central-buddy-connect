@@ -813,26 +813,31 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
       </Card>
 
       {/* Dívidas e Pendências */}
-      <Card>
-        <CardHeader>
+      <Card className="border-2 border-destructive/10">
+        <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Receipt className="h-4 w-4" />
+            <Receipt className="h-5 w-5 text-destructive" />
             Dívidas & Pendências
           </CardTitle>
           <CardDescription>Dívida ativa, protestos em cartório e processos judiciais</CardDescription>
         </CardHeader>
         <CardContent>
           {!dividasData && !dividasLoading && !dividasError && (
-            <Button onClick={buscarDividas} className="gap-2">
+            <Button onClick={buscarDividas} className="gap-2" variant="destructive">
               <Search className="h-4 w-4" />
               Buscar Dívidas e Pendências
             </Button>
           )}
 
           {dividasLoading && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Buscando dívidas e pendências...
+            <div className="flex flex-col items-center gap-3 py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-destructive" />
+              <p className="text-sm text-muted-foreground">Buscando dívidas e pendências...</p>
+              <div className="flex gap-6 text-xs text-muted-foreground">
+                <span className="animate-pulse">Dívida Ativa...</span>
+                <span className="animate-pulse" style={{ animationDelay: '0.3s' }}>Protestos...</span>
+                <span className="animate-pulse" style={{ animationDelay: '0.6s' }}>Processos...</span>
+              </div>
             </div>
           )}
 
@@ -843,59 +848,154 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
             </div>
           )}
 
-          {dividasData && (
-            <div className="space-y-4">
-              {Object.entries(dividasData).map(([key, section]: [string, any]) => {
-                const icon = key === 'divida_ativa' ? <DollarSign className="h-3 w-3" /> :
-                             key === 'protestos' ? <Ban className="h-3 w-3" /> :
-                             <Gavel className="h-3 w-3" />;
-                const hasItems = section.items && section.items.length > 0;
+          {dividasData && (() => {
+            const sections = Object.entries(dividasData) as [string, any][];
+            const totalRegistros = sections.reduce((acc, [, s]) => acc + (s.encontrados || 0), 0);
+            const totalValores = sections.reduce((acc, [, s]) => acc + (s.valores?.length || 0), 0);
 
-                return (
-                  <div key={key} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                        {icon}
-                        {section.label} ({section.encontrados})
-                      </p>
-                      {section.valores && section.valores.length > 0 && (
-                        <div className="flex gap-1">
-                          {section.valores.slice(0, 3).map((v: string, i: number) => (
-                            <Badge key={i} variant="destructive" className="text-xs">{v}</Badge>
-                          ))}
-                        </div>
-                      )}
+            const chartData = sections.map(([key, section]) => ({
+              name: key === 'divida_ativa' ? 'Dívida Ativa' : key === 'protestos' ? 'Protestos' : 'Processos',
+              registros: section.encontrados || 0,
+              fill: key === 'divida_ativa' ? 'hsl(var(--destructive))' : key === 'protestos' ? 'hsl(30, 90%, 50%)' : 'hsl(280, 60%, 50%)',
+            }));
+
+            const riskScore = Math.min(100, totalRegistros * 15 + totalValores * 10);
+            const riskLevel = riskScore >= 60 ? 'Alto' : riskScore >= 30 ? 'Moderado' : riskScore > 0 ? 'Baixo' : 'Nenhum';
+            const riskColor = riskScore >= 60 ? 'text-destructive' : riskScore >= 30 ? 'text-orange-500' : riskScore > 0 ? 'text-yellow-600' : 'text-green-600';
+            const riskBg = riskScore >= 60 ? 'from-destructive/10 to-destructive/5' : riskScore >= 30 ? 'from-orange-500/10 to-orange-500/5' : riskScore > 0 ? 'from-yellow-500/10 to-yellow-500/5' : 'from-green-500/10 to-green-500/5';
+
+            return (
+              <div className="space-y-6 animate-fade-in">
+                {/* Risk Overview Dashboard */}
+                <div className={`rounded-xl p-4 bg-gradient-to-br ${riskBg} border`}>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {/* Risk Score */}
+                    <div className="text-center">
+                      <div className={`text-3xl font-black ${riskColor}`}>{riskScore}</div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Score de Risco</p>
+                      <Badge className={`mt-1 text-xs ${
+                        riskScore >= 60 ? 'bg-destructive/20 text-destructive border-destructive/30' :
+                        riskScore >= 30 ? 'bg-orange-100 text-orange-700 border-orange-300' :
+                        riskScore > 0 ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                        'bg-green-100 text-green-700 border-green-300'
+                      }`}>
+                        {riskScore >= 60 ? '⚠️' : riskScore >= 30 ? '⚡' : riskScore > 0 ? '📊' : '✅'} {riskLevel}
+                      </Badge>
                     </div>
 
-                    {hasItems ? (
-                      <div className="space-y-1 max-h-48 overflow-y-auto">
-                        {section.items.map((item: any, i: number) => (
-                          <a
-                            key={i}
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block text-xs p-2 rounded border bg-muted/20 hover:bg-accent transition-colors"
-                          >
-                            <p className="font-medium text-foreground">{item.titulo}</p>
-                            {item.descricao && (
-                              <p className="text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>
-                            )}
-                            <p className="text-[10px] text-muted-foreground mt-1">{item.fonte}</p>
-                          </a>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-xs text-green-600 p-2 rounded border bg-green-50 dark:bg-green-950/30">
-                        <ShieldCheck className="h-3 w-3" />
-                        Nenhum registro encontrado
-                      </div>
-                    )}
+                    {/* Total records */}
+                    <div className="text-center">
+                      <div className="text-3xl font-black text-foreground">{totalRegistros}</div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Registros</p>
+                    </div>
+
+                    {/* Chart mini */}
+                    <div className="col-span-2 flex items-center justify-center gap-3">
+                      {chartData.map((item, i) => (
+                        <div key={i} className="flex flex-col items-center gap-1">
+                          <div className="relative w-12 h-12">
+                            <svg viewBox="0 0 36 36" className="w-12 h-12 -rotate-90">
+                              <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted/30" />
+                              <circle
+                                cx="18" cy="18" r="14" fill="none"
+                                stroke={item.fill}
+                                strokeWidth="3"
+                                strokeDasharray={`${Math.min(88, item.registros * 17.6)} 88`}
+                                strokeLinecap="round"
+                                className="transition-all duration-1000"
+                              />
+                            </svg>
+                            <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">{item.registros}</span>
+                          </div>
+                          <span className="text-[9px] text-muted-foreground text-center leading-tight">{item.name}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </div>
+
+                {/* Detail Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {sections.map(([key, section]) => {
+                    const config = {
+                      divida_ativa: { icon: <DollarSign className="h-4 w-4" />, color: 'text-destructive', borderColor: 'border-destructive/30', bgColor: 'bg-destructive/5', emoji: '💰' },
+                      protestos: { icon: <Ban className="h-4 w-4" />, color: 'text-orange-600', borderColor: 'border-orange-300', bgColor: 'bg-orange-50 dark:bg-orange-950/20', emoji: '📋' },
+                      processos: { icon: <Gavel className="h-4 w-4" />, color: 'text-purple-600', borderColor: 'border-purple-300', bgColor: 'bg-purple-50 dark:bg-purple-950/20', emoji: '⚖️' },
+                    }[key] || { icon: <FileText className="h-4 w-4" />, color: 'text-muted-foreground', borderColor: 'border-border', bgColor: 'bg-muted/20', emoji: '📄' };
+
+                    const hasItems = section.items && section.items.length > 0;
+
+                    return (
+                      <Card key={key} className={`${config.borderColor} border overflow-hidden`}>
+                        <div className={`${config.bgColor} px-3 py-2 border-b ${config.borderColor}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className={config.color}>{config.icon}</span>
+                              <span className="text-xs font-bold">{section.label}</span>
+                            </div>
+                            <Badge variant={hasItems ? "destructive" : "secondary"} className="text-xs">
+                              {section.encontrados}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="p-3">
+                          {/* Values found */}
+                          {section.valores && section.valores.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-3">
+                              {section.valores.slice(0, 4).map((v: string, i: number) => (
+                                <Badge key={i} variant="outline" className={`text-xs ${config.color} ${config.borderColor}`}>
+                                  {v}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+
+                          {hasItems ? (
+                            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                              {section.items.map((item: any, i: number) => (
+                                <a
+                                  key={i}
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block text-xs p-2 rounded-md border bg-background hover:bg-accent/50 transition-all hover:shadow-sm group"
+                                >
+                                  <p className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                                    {config.emoji} {item.titulo}
+                                  </p>
+                                  {item.descricao && (
+                                    <p className="text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{item.descricao}</p>
+                                  )}
+                                  <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
+                                    <ExternalLink className="h-2.5 w-2.5" />
+                                    {item.fonte}
+                                  </div>
+                                </a>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-xs text-green-600 py-3 justify-center">
+                              <ShieldCheck className="h-4 w-4" />
+                              <span className="font-medium">Nenhum registro</span>
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+
+                {/* Refresh button */}
+                <div className="flex justify-center">
+                  <Button variant="ghost" size="sm" onClick={buscarDividas} className="gap-2 text-xs text-muted-foreground">
+                    <Search className="h-3 w-3" />
+                    Buscar novamente
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
