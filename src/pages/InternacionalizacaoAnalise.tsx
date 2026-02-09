@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCnpj, type CnpjData } from "@/lib/empresa-api";
@@ -134,8 +135,9 @@ export default function InternacionalizacaoAnalise() {
       // Auto-fetch additional data from existing edge functions
       autoFetchData(data);
       setStep('form');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      toast.error(err?.message || 'Erro ao buscar CNPJ. Verifique o número e tente novamente.');
     } finally {
       setLoading(false);
     }
