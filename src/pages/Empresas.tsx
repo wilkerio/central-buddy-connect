@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play } from "lucide-react";
+import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 
 const SEARCH_INTERVAL = 8000;
@@ -21,6 +22,92 @@ function shuffleArray<T>(arr: T[]): T[] {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
+}
+
+// CNAEs tipicamente envolvidos em operações internacionais
+const CNAES_INTERNACIONAIS = [
+  4611, 4612, 4613, 4614, 4615, 4616, 4617, 4618, 4619, // Comércio atacadista
+  4921, 4922, 4923, 4924, 4929, 4930, // Transporte
+  5011, 5012, 5021, 5022, 5030, // Navegação / transporte aquaviário
+  5111, 5112, 5120, // Transporte aéreo
+  6421, 6422, 6423, 6424, 6431, 6432, 6433, 6434, 6435, 6436, 6437, 6438, 6440, // Financeiro
+  6550, // Planos de saúde (grandes)
+  7020, 7111, 7112, 7119, 7120, // Consultoria / engenharia
+  6201, 6202, 6203, 6204, 6209, // Tecnologia
+  2011, 2012, 2013, 2014, 2019, 2021, 2022, 2029, 2031, 2032, 2033, 2040, 2051, 2052, 2061, 2062, 2063, 2071, 2072, 2073, 2091, 2092, 2093, 2094, 2099, // Indústria química
+  1011, 1012, 1013, 1020, 1031, 1032, 1033, 1041, 1042, 1043, 1051, 1052, 1053, 1061, 1062, 1063, 1064, 1065, 1066, 1069, 1071, 1072, // Alimentos
+  500, 510, 600, 700, 800, 900, 1000, // Agricultura / mineração
+];
+
+interface CreditoInternacionalScore {
+  score: number; // 0-100
+  nivel: "alto" | "medio" | "baixo" | "muito_baixo";
+  cor: string;
+  decisores: number;
+  fatores: string[];
+}
+
+function calcularPotencialCreditoInternacional(empresa: CnpjData): CreditoInternacionalScore {
+  let score = 0;
+  const fatores: string[] = [];
+
+  // 1. Capital Social (0-25 pts)
+  if (empresa.capital_social >= 100_000_000) { score += 25; fatores.push("Capital > R$100M"); }
+  else if (empresa.capital_social >= 10_000_000) { score += 20; fatores.push("Capital > R$10M"); }
+  else if (empresa.capital_social >= 1_000_000) { score += 12; fatores.push("Capital > R$1M"); }
+  else if (empresa.capital_social >= 100_000) { score += 5; fatores.push("Capital > R$100K"); }
+
+  // 2. Porte da empresa (0-15 pts)
+  const porte = (empresa.porte || "").toUpperCase();
+  if (porte.includes("GRANDE") || porte.includes("DEMAIS")) { score += 15; fatores.push("Grande porte"); }
+  else if (porte.includes("MEDIO") || porte.includes("MÉDIA")) { score += 10; fatores.push("Médio porte"); }
+  else if (porte.includes("PEQUENO")) { score += 4; fatores.push("Pequeno porte"); }
+
+  // 3. CNAE relevante para internacionalização (0-20 pts)
+  const cnaeNum = Number(String(empresa.cnae_fiscal).substring(0, 4));
+  if (CNAES_INTERNACIONAIS.some(c => String(cnaeNum).startsWith(String(c).substring(0, 2)))) {
+    score += 20;
+    fatores.push("CNAE com perfil internacional");
+  } else if (empresa.cnae_fiscal_descricao?.toLowerCase().match(/export|import|internacional|exterior|cambio|câmbio|comércio exterior/)) {
+    score += 20;
+    fatores.push("Descrição sugere atuação internacional");
+  }
+
+  // 4. Quadro societário robusto (0-15 pts) - mais sócios = mais decisores
+  const numSocios = empresa.qsa?.length || 0;
+  if (numSocios >= 5) { score += 15; fatores.push(`${numSocios} sócios no QSA`); }
+  else if (numSocios >= 3) { score += 10; fatores.push(`${numSocios} sócios no QSA`); }
+  else if (numSocios >= 1) { score += 5; fatores.push(`${numSocios} sócio(s) no QSA`); }
+
+  // 5. Qualificação dos sócios - diretores/administradores = decisores (0-15 pts)
+  const qualificacoesDecisoras = ["ADMINISTRADOR", "DIRETOR", "PRESIDENTE", "SÓCIO-ADMINISTRADOR", "PROCURADOR"];
+  const decisores = (empresa.qsa || []).filter(s =>
+    qualificacoesDecisoras.some(q => s.qualificacao_socio?.toUpperCase().includes(q))
+  );
+  if (decisores.length >= 3) { score += 15; fatores.push(`${decisores.length} decisores-chave`); }
+  else if (decisores.length >= 1) { score += 8; fatores.push(`${decisores.length} decisor(es)-chave`); }
+
+  // 6. Empresa ativa (0-5 pts)
+  if (empresa.situacao_cadastral === "ATIVA") { score += 5; fatores.push("Empresa ativa"); }
+
+  // 7. Tempo de mercado (0-5 pts)
+  if (empresa.data_inicio_atividade) {
+    const anos = (new Date().getFullYear()) - new Date(empresa.data_inicio_atividade).getFullYear();
+    if (anos >= 10) { score += 5; fatores.push(`${anos} anos de mercado`); }
+    else if (anos >= 5) { score += 3; fatores.push(`${anos} anos de mercado`); }
+  }
+
+  // Normalizar score para 0-100
+  score = Math.min(100, score);
+
+  let nivel: CreditoInternacionalScore["nivel"];
+  let cor: string;
+  if (score >= 70) { nivel = "alto"; cor = "text-green-600"; }
+  else if (score >= 45) { nivel = "medio"; cor = "text-yellow-600"; }
+  else if (score >= 25) { nivel = "baixo"; cor = "text-orange-500"; }
+  else { nivel = "muito_baixo"; cor = "text-red-500"; }
+
+  return { score, nivel, cor, decisores: decisores.length, fatores };
 }
 
 // Save empresa to database
@@ -262,7 +349,9 @@ export default function Empresas() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredEmpresas.map((empresa) => (
+                  {filteredEmpresas.map((empresa) => {
+                    const credito = calcularPotencialCreditoInternacional(empresa);
+                    return (
                     <Card
                       key={empresa.cnpj}
                       className="cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/30 animate-in fade-in slide-in-from-top-2 duration-500"
@@ -289,6 +378,30 @@ export default function Empresas() {
                         <p className="text-xs text-muted-foreground truncate">
                           {empresa.municipio}/{empresa.uf}
                         </p>
+
+                        {/* Potencial Crédito Internacional */}
+                        <div className="pt-1 border-t">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-xs font-medium flex items-center gap-1">
+                              <Globe className="h-3 w-3" />
+                              Crédito Internacional
+                            </p>
+                            <span className={`text-xs font-bold ${credito.cor}`}>
+                              {credito.score}%
+                            </span>
+                          </div>
+                          <Progress value={credito.score} className="h-1.5" />
+                          <div className="flex items-center justify-between mt-1">
+                            <span className={`text-[10px] font-semibold uppercase ${credito.cor}`}>
+                              {credito.nivel === "alto" ? "🔥 Alto" : credito.nivel === "medio" ? "⚡ Médio" : credito.nivel === "baixo" ? "📊 Baixo" : "⚠️ Muito Baixo"}
+                            </span>
+                            {credito.decisores > 0 && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {credito.decisores} decisor{credito.decisores > 1 ? "es" : ""}
+                              </span>
+                            )}
+                          </div>
+                        </div>
 
                         {/* Contato direto */}
                         <div className="flex flex-wrap gap-1.5 pt-1 border-t">
@@ -345,7 +458,8 @@ export default function Empresas() {
                         )}
                       </CardContent>
                     </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>
@@ -412,8 +526,89 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
   formatCurrency: (v: number) => string;
   formatCnpj: (v: string) => string;
 }) {
+  const credito = calcularPotencialCreditoInternacional(empresa);
+  
   return (
     <div className="space-y-4">
+      {/* Score de Crédito Internacional - Destaque */}
+      <Card className="border-2 border-primary/20 bg-gradient-to-r from-card to-accent/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Globe className="h-5 w-5 text-primary" />
+            Potencial de Crédito Internacional
+          </CardTitle>
+          <CardDescription>Análise baseada em capital, porte, setor, sócios e tempo de mercado</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-shrink-0 text-center">
+              <div className={`text-4xl font-black ${credito.cor}`}>{credito.score}</div>
+              <div className="text-xs text-muted-foreground">de 100</div>
+            </div>
+            <div className="flex-1 space-y-2">
+              <Progress value={credito.score} className="h-3" />
+              <div className="flex items-center justify-between">
+                <Badge className={`${
+                  credito.nivel === "alto" ? "bg-green-100 text-green-800 border-green-300" :
+                  credito.nivel === "medio" ? "bg-yellow-100 text-yellow-800 border-yellow-300" :
+                  credito.nivel === "baixo" ? "bg-orange-100 text-orange-800 border-orange-300" :
+                  "bg-red-100 text-red-800 border-red-300"
+                }`}>
+                  {credito.nivel === "alto" ? "🔥 Alto Potencial" : credito.nivel === "medio" ? "⚡ Médio Potencial" : credito.nivel === "baixo" ? "📊 Baixo Potencial" : "⚠️ Muito Baixo"}
+                </Badge>
+                <span className="text-sm font-medium text-muted-foreground">
+                  {credito.decisores} decisor{credito.decisores !== 1 ? "es" : ""} identificado{credito.decisores !== 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Fatores */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
+              <TrendingUp className="h-3 w-3" />
+              FATORES DA ANÁLISE
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {credito.fatores.map((f, i) => (
+                <Badge key={i} variant="outline" className="text-xs">
+                  {f}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          {/* Decisores que podem fechar crédito */}
+          {empresa.qsa && empresa.qsa.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3" />
+                PESSOAS QUE PODEM FECHAR CRÉDITO INTERNACIONAL
+              </p>
+              <div className="space-y-2">
+                {empresa.qsa.map((socio, i) => {
+                  const qualificacoesDecisoras = ["ADMINISTRADOR", "DIRETOR", "PRESIDENTE", "SÓCIO-ADMINISTRADOR", "PROCURADOR"];
+                  const isDecisor = qualificacoesDecisoras.some(q => socio.qualificacao_socio?.toUpperCase().includes(q));
+                  return (
+                    <div key={i} className={`flex items-center justify-between p-2 rounded-md border ${isDecisor ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-900" : "bg-muted/30"}`}>
+                      <div className="flex items-center gap-2">
+                        {isDecisor ? <ShieldCheck className="h-4 w-4 text-green-600" /> : <AlertTriangle className="h-4 w-4 text-muted-foreground" />}
+                        <div>
+                          <p className={`text-sm font-medium ${isDecisor ? "text-green-800 dark:text-green-300" : "text-muted-foreground"}`}>{socio.nome_socio}</p>
+                          <p className="text-[10px] text-muted-foreground">{socio.qualificacao_socio}</p>
+                        </div>
+                      </div>
+                      <Badge variant={isDecisor ? "default" : "secondary"} className="text-[10px]">
+                        {isDecisor ? "✅ Pode fechar" : "Sem poder"}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <div className="flex items-start gap-3">
