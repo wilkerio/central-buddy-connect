@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign, Gavel, Ban, Receipt, BarChart3, Info, Home, Car, Briefcase, Shield, CheckCircle2, XCircle, HelpCircle, Zap } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from "recharts";
 
 const SEARCH_INTERVAL = 8000;
 
@@ -1090,26 +1090,45 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
       </Card>
 
       {/* Portal da Transparência */}
-      <Card>
-        <CardHeader>
+      <Card className="border-2 border-indigo-500/20 overflow-hidden">
+        {/* Header with gradient */}
+        {portalData && portalData.resumo && (
+          <div className={`px-4 py-2 text-sm font-bold flex items-center gap-2 ${
+            portalData.resumo.sancoes.length > 0
+              ? 'bg-destructive text-destructive-foreground'
+              : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white'
+          }`}>
+            {portalData.resumo.sancoes.length > 0
+              ? <><AlertTriangle className="h-4 w-4" /> ⚠️ SANÇÕES ENCONTRADAS</>
+              : <><ShieldCheck className="h-4 w-4" /> ✅ SEM SANÇÕES — EMPRESA REGULAR</>
+            }
+          </div>
+        )}
+
+        <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Scale className="h-4 w-4" />
+            <Scale className="h-5 w-5 text-indigo-600" />
             Portal da Transparência
           </CardTitle>
           <CardDescription>Contratos, licitações, valores recebidos e sanções do governo federal</CardDescription>
         </CardHeader>
         <CardContent>
           {!portalData && !portalLoading && !portalError && (
-            <Button onClick={buscarPortalTransparencia} className="gap-2">
-              <Search className="h-4 w-4" />
-              Buscar no Portal da Transparência
+            <Button onClick={buscarPortalTransparencia} className="gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white">
+              <Scale className="h-4 w-4" />
+              Consultar Portal da Transparência
             </Button>
           )}
 
           {portalLoading && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Buscando dados no Portal da Transparência...
+            <div className="flex flex-col items-center gap-3 py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+              <p className="text-sm text-muted-foreground">Consultando dados no Portal da Transparência...</p>
+              <div className="flex gap-6 text-xs text-muted-foreground">
+                <span className="animate-pulse">Contratos...</span>
+                <span className="animate-pulse" style={{ animationDelay: '0.3s' }}>Licitações...</span>
+                <span className="animate-pulse" style={{ animationDelay: '0.6s' }}>Sanções...</span>
+              </div>
             </div>
           )}
 
@@ -1120,67 +1139,211 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
             </div>
           )}
 
-          {portalData && portalData.resumo && (
-            <div className="space-y-4">
-              {/* Contratos */}
-              {portalData.resumo.contratos.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    <FileText className="h-3 w-3" />
-                    Contratos e Licitações ({portalData.resumo.contratos.length})
-                  </p>
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {portalData.resumo.contratos.map((item: string, i: number) => (
-                      <p key={i} className="text-xs text-foreground p-2 rounded border bg-muted/20">{item}</p>
-                    ))}
+          {portalData && portalData.resumo && (() => {
+            const resumo = portalData.resumo;
+            const totalContratos = resumo.contratos.length;
+            const totalValores = resumo.valoresRecebidos.length;
+            const totalSancoes = resumo.sancoes.length;
+            const totalOutras = resumo.outrasInfos.length;
+            const totalRegistros = totalContratos + totalValores + totalSancoes + totalOutras;
+
+            // Chart data for distribution
+            const pieData = [
+              { name: 'Contratos', value: totalContratos, fill: 'hsl(230, 70%, 55%)' },
+              { name: 'Valores', value: totalValores, fill: 'hsl(145, 65%, 40%)' },
+              { name: 'Sanções', value: totalSancoes, fill: 'hsl(0, 75%, 55%)' },
+              { name: 'Outros', value: totalOutras, fill: 'hsl(270, 50%, 55%)' },
+            ].filter(d => d.value > 0);
+
+            const barData = [
+              { categoria: 'Contratos', registros: totalContratos, fill: 'hsl(230, 70%, 55%)' },
+              { categoria: 'Valores', registros: totalValores, fill: 'hsl(145, 65%, 40%)' },
+              { categoria: 'Sanções', registros: totalSancoes, fill: 'hsl(0, 75%, 55%)' },
+              { categoria: 'Outros', registros: totalOutras, fill: 'hsl(270, 50%, 55%)' },
+            ];
+
+            return (
+              <div className="space-y-6 animate-fade-in">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="rounded-xl bg-gradient-to-br from-indigo-500/10 to-indigo-500/5 border border-indigo-200 dark:border-indigo-800 p-3 text-center">
+                    <p className="text-3xl font-black text-indigo-600">{totalRegistros}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Total Registros</p>
+                  </div>
+                  <div className="rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-200 dark:border-blue-800 p-3 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      <p className="text-3xl font-black text-blue-600">{totalContratos}</p>
+                    </div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Contratos</p>
+                  </div>
+                  <div className="rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-200 dark:border-emerald-800 p-3 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <DollarSign className="h-4 w-4 text-emerald-600" />
+                      <p className="text-3xl font-black text-emerald-600">{totalValores}</p>
+                    </div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Valores Recebidos</p>
+                  </div>
+                  <div className={`rounded-xl p-3 text-center border ${
+                    totalSancoes > 0
+                      ? 'bg-gradient-to-br from-destructive/10 to-destructive/5 border-destructive/30'
+                      : 'bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-200 dark:border-green-800'
+                  }`}>
+                    <div className="flex items-center justify-center gap-1">
+                      {totalSancoes > 0 ? <AlertTriangle className="h-4 w-4 text-destructive" /> : <ShieldCheck className="h-4 w-4 text-green-600" />}
+                      <p className={`text-3xl font-black ${totalSancoes > 0 ? 'text-destructive' : 'text-green-600'}`}>{totalSancoes}</p>
+                    </div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Sanções</p>
                   </div>
                 </div>
-              )}
 
-              {/* Valores Recebidos */}
-              {portalData.resumo.valoresRecebidos.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    <DollarSign className="h-3 w-3" />
-                    Valores Recebidos ({portalData.resumo.valoresRecebidos.length})
-                  </p>
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {portalData.resumo.valoresRecebidos.map((item: string, i: number) => (
-                      <p key={i} className="text-xs text-foreground p-2 rounded border bg-muted/20">{item}</p>
-                    ))}
+                {/* Charts Row */}
+                {totalRegistros > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Bar Chart */}
+                    <div className="rounded-xl border bg-background p-4">
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1">
+                        <BarChart3 className="h-3 w-3" />
+                        Distribuição por Categoria
+                      </p>
+                      <div className="h-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={barData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                            <XAxis dataKey="categoria" tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                            <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} />
+                            <Bar dataKey="registros" radius={[6, 6, 0, 0]}>
+                              {barData.map((entry, i) => (
+                                <Cell key={i} fill={entry.fill} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Pie Chart */}
+                    <div className="rounded-xl border bg-background p-4">
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1">
+                        <Info className="h-3 w-3" />
+                        Proporção dos Registros
+                      </p>
+                      <div className="h-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={pieData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={40}
+                              outerRadius={70}
+                              paddingAngle={3}
+                              dataKey="value"
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              labelLine={false}
+                            >
+                              {pieData.map((entry, i) => (
+                                <Cell key={i} fill={entry.fill} />
+                              ))}
+                            </Pie>
+                            <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Sanções */}
-              {portalData.resumo.sancoes.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wider flex items-center gap-1 text-destructive">
-                    <AlertTriangle className="h-3 w-3" />
-                    ⚠️ Sanções e Penalidades ({portalData.resumo.sancoes.length})
-                  </p>
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {portalData.resumo.sancoes.map((item: string, i: number) => (
-                      <p key={i} className="text-xs text-destructive p-2 rounded border border-destructive/30 bg-destructive/5">{item}</p>
-                    ))}
+                {/* Contratos */}
+                {totalContratos > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <FileText className="h-3 w-3 text-indigo-600" />
+                      Contratos e Licitações ({totalContratos})
+                    </p>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {resumo.contratos.map((item: string, i: number) => (
+                        <p key={i} className="text-xs text-foreground p-2.5 rounded-lg border bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-200/50 dark:border-indigo-800/30 hover:bg-indigo-100/50 dark:hover:bg-indigo-950/40 transition-colors">
+                          📋 {item}
+                        </p>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-sm text-green-600">
-                  <ShieldCheck className="h-4 w-4" />
-                  Nenhuma sanção encontrada
-                </div>
-              )}
+                )}
 
-              {/* Link direto */}
-              <a href={portalData.url} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" size="sm" className="gap-2 mt-2">
-                  <ExternalLink className="h-3 w-3" />
-                  Ver no Portal da Transparência
-                </Button>
-              </a>
-            </div>
-          )}
+                {/* Valores Recebidos */}
+                {totalValores > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <DollarSign className="h-3 w-3 text-emerald-600" />
+                      Valores Recebidos ({totalValores})
+                    </p>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {resumo.valoresRecebidos.map((item: string, i: number) => (
+                        <p key={i} className="text-xs text-foreground p-2.5 rounded-lg border bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/30 hover:bg-emerald-100/50 dark:hover:bg-emerald-950/40 transition-colors">
+                          💰 {item}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Sanções */}
+                {totalSancoes > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider flex items-center gap-1 text-destructive">
+                      <AlertTriangle className="h-3 w-3" />
+                      ⚠️ Sanções e Penalidades ({totalSancoes})
+                    </p>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {resumo.sancoes.map((item: string, i: number) => (
+                        <p key={i} className="text-xs text-destructive p-2.5 rounded-lg border border-destructive/30 bg-destructive/5 hover:bg-destructive/10 transition-colors">
+                          🚨 {item}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-green-600 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900">
+                    <ShieldCheck className="h-5 w-5" />
+                    <span className="font-medium">Nenhuma sanção ou penalidade encontrada — empresa regular</span>
+                  </div>
+                )}
+
+                {/* Outras Infos */}
+                {totalOutras > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <Info className="h-3 w-3 text-purple-600" />
+                      Outras Informações ({totalOutras})
+                    </p>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                      {resumo.outrasInfos.map((item: string, i: number) => (
+                        <p key={i} className="text-xs text-foreground p-2.5 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors">
+                          {item}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <a href={portalData.url} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <ExternalLink className="h-3 w-3" />
+                      Ver no Portal da Transparência
+                    </Button>
+                  </a>
+                  <Button variant="ghost" size="sm" onClick={buscarPortalTransparencia} className="gap-2 text-xs text-muted-foreground">
+                    <Search className="h-3 w-3" />
+                    Consultar novamente
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
