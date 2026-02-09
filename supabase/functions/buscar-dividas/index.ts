@@ -20,16 +20,7 @@ async function perplexitySearch(apiKey: string, query: string): Promise<{ conten
     }),
   });
 
-  const responseText = await response.text();
-  console.log('Perplexity response status:', response.status, 'body preview:', responseText.substring(0, 500));
-  
-  let data;
-  try {
-    data = JSON.parse(responseText);
-  } catch {
-    throw new Error(`Perplexity retornou resposta inválida (status ${response.status}): ${responseText.substring(0, 200)}`);
-  }
-  
+  const data = await response.json();
   if (!response.ok) {
     throw new Error(data.error?.message || `Erro ${response.status}`);
   }
