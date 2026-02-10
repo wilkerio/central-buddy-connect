@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { fetchCnpj, fetchAllInstituicoesFinanceiras, CNPJS_POOL, type CnpjData } from "@/lib/empresa-api";
+import { fetchCnpj, fetchAllInstituicoesFinanceiras, CNPJS_POOL_UNIQUE, type CnpjData } from "@/lib/empresa-api";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -145,6 +145,7 @@ export default function Empresas() {
   const [isRunning, setIsRunning] = useState(true);
   const [currentSearch, setCurrentSearch] = useState<string | null>(null);
   const [filterText, setFilterText] = useState("");
+  const [filterCapitalMin, setFilterCapitalMin] = useState("");
   const [filterIf, setFilterIf] = useState("");
   const [cnpjManual, setCnpjManual] = useState("");
   const [isManualLoading, setIsManualLoading] = useState(false);
@@ -177,11 +178,11 @@ export default function Empresas() {
 
   const fetchNext = useCallback(async () => {
     if (queueRef.current.length === 0) {
-      queueRef.current = shuffleArray(CNPJS_POOL.filter(c => !fetchedRef.current.has(c)));
+      queueRef.current = shuffleArray(CNPJS_POOL_UNIQUE.filter(c => !fetchedRef.current.has(c)));
       if (queueRef.current.length === 0) {
         // All fetched, reset
         fetchedRef.current.clear();
-        queueRef.current = shuffleArray([...CNPJS_POOL]);
+        queueRef.current = shuffleArray([...CNPJS_POOL_UNIQUE]);
       }
     }
 
@@ -213,12 +214,19 @@ export default function Empresas() {
     return () => clearInterval(interval);
   }, [isRunning, dbLoaded, fetchNext]);
 
-  const filteredEmpresas = empresas.filter(e =>
-    !filterText ||
-    e.razao_social.toLowerCase().includes(filterText.toLowerCase()) ||
-    (e.nome_fantasia && e.nome_fantasia.toLowerCase().includes(filterText.toLowerCase())) ||
-    e.cnpj.includes(filterText.replace(/\D/g, ""))
-  );
+  const capitalMinNum = filterCapitalMin ? parseFloat(filterCapitalMin.replace(/\D/g, "")) : 0;
+
+  const filteredEmpresas = empresas.filter(e => {
+    // Text filter
+    if (filterText && !(
+      e.razao_social.toLowerCase().includes(filterText.toLowerCase()) ||
+      (e.nome_fantasia && e.nome_fantasia.toLowerCase().includes(filterText.toLowerCase())) ||
+      e.cnpj.includes(filterText.replace(/\D/g, ""))
+    )) return false;
+    // Capital filter
+    if (capitalMinNum > 0 && e.capital_social < capitalMinNum) return false;
+    return true;
+  });
 
   const formatCurrency = (val: number) =>
     val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -325,7 +333,7 @@ export default function Empresas() {
                 </Button>
               </form>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <div className="relative flex-1 max-w-sm">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -336,6 +344,25 @@ export default function Empresas() {
                   />
                   {filterText && (
                     <button onClick={() => setFilterText("")} className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <X className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
+                <div className="relative max-w-[200px]">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Capital mínimo (R$)"
+                    value={filterCapitalMin}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "");
+                      if (!raw) { setFilterCapitalMin(""); return; }
+                      setFilterCapitalMin(Number(raw).toLocaleString("pt-BR"));
+                    }}
+                    className="pl-9"
+                  />
+                  {filterCapitalMin && (
+                    <button onClick={() => setFilterCapitalMin("")} className="absolute right-3 top-1/2 -translate-y-1/2">
                       <X className="h-4 w-4 text-muted-foreground" />
                     </button>
                   )}
