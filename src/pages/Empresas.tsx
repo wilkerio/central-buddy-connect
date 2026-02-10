@@ -164,6 +164,20 @@ export default function Empresas() {
     });
   }, []);
 
+  // Load analyzed CNPJs
+  const [analyzedCnpjs, setAnalyzedCnpjs] = useState<Map<string, { score: number | null; status: string; rating: string | null }>>(new Map());
+  useEffect(() => {
+    supabase.from("internationalization_analyses")
+      .select("cnpj, overall_score, status, risk_classification")
+      .then(({ data }) => {
+        if (data) {
+          const map = new Map<string, { score: number | null; status: string; rating: string | null }>();
+          data.forEach((r: any) => map.set(r.cnpj, { score: r.overall_score, status: r.status, rating: r.risk_classification }));
+          setAnalyzedCnpjs(map);
+        }
+      });
+  }, []);
+
   // Auto-load financial institutions
   const ifQuery = useQuery({
     queryKey: ["if-all"],
@@ -387,6 +401,7 @@ export default function Empresas() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredEmpresas.map((empresa) => {
                     const credito = calcularPotencialCreditoInternacional(empresa);
+                    const aciAnalysis = analyzedCnpjs.get(empresa.cnpj.replace(/\D/g, "")) || analyzedCnpjs.get(empresa.cnpj);
                     return (
                     <Card
                       key={empresa.cnpj}
@@ -439,6 +454,39 @@ export default function Empresas() {
                           </div>
                         </div>
 
+                        {/* Análise ACI indicator */}
+                        <div className="pt-1 border-t">
+                          {aciAnalysis ? (
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-medium flex items-center gap-1 text-emerald-500">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Análise ACI realizada
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                {aciAnalysis.rating && aciAnalysis.rating !== "N/A" && (
+                                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-emerald-500/50 text-emerald-500">
+                                    {aciAnalysis.rating}
+                                  </Badge>
+                                )}
+                                {aciAnalysis.score != null && aciAnalysis.score > 0 && (
+                                  <span className="text-[10px] font-bold text-emerald-500">{aciAnalysis.score}pts</span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                <XCircle className="h-3 w-3" />
+                                Sem análise ACI
+                              </span>
+                              <Link to="/internacionalizacao/analise" onClick={(e) => e.stopPropagation()}>
+                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 cursor-pointer hover:bg-accent">
+                                  Analisar
+                                </Badge>
+                              </Link>
+                            </div>
+                          )}
+                        </div>
 
 
 
