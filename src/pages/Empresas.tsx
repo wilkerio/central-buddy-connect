@@ -245,6 +245,13 @@ export default function Empresas() {
   const formatCurrency = (val: number) =>
     val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+  const formatCompact = (val: number) => {
+    if (val >= 1_000_000_000) return `R$ ${(val / 1_000_000_000).toFixed(1).replace('.0', '')}B`;
+    if (val >= 1_000_000) return `R$ ${(val / 1_000_000).toFixed(1).replace('.0', '')}M`;
+    if (val >= 1_000) return `R$ ${(val / 1_000).toFixed(0)}K`;
+    return `R$ ${val}`;
+  };
+
   const formatCnpj = (val: string) =>
     val.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
 
@@ -295,7 +302,7 @@ export default function Empresas() {
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         {selectedEmpresa ? (
-          <EmpresaDetail empresa={selectedEmpresa} onBack={() => setSelectedEmpresa(null)} formatCurrency={formatCurrency} formatCnpj={formatCnpj} />
+          <EmpresaDetail empresa={selectedEmpresa} onBack={() => setSelectedEmpresa(null)} formatCurrency={formatCurrency} formatCompact={formatCompact} formatCnpj={formatCnpj} />
         ) : (
           <Tabs defaultValue="empresas" className="space-y-6">
             <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -417,8 +424,8 @@ export default function Empresas() {
                         )}
                       </CardHeader>
                       <CardContent className="space-y-2">
-                        <p className="text-lg font-bold text-primary">
-                          {formatCurrency(empresa.capital_social)}
+                        <p className="text-lg font-bold text-primary" title={formatCurrency(empresa.capital_social)}>
+                          {formatCompact(empresa.capital_social)}
                         </p>
                         <div className="flex items-center gap-2 flex-wrap">
                           <Badge variant={empresa.situacao_cadastral === "ATIVA" ? "default" : "destructive"} className="text-xs">
@@ -607,10 +614,11 @@ export default function Empresas() {
   );
 }
 
-function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
+function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatCnpj }: {
   empresa: CnpjData;
   onBack: () => void;
   formatCurrency: (v: number) => string;
+  formatCompact: (v: number) => string;
   formatCnpj: (v: string) => string;
 }) {
   const credito = calcularPotencialCreditoInternacional(empresa);
@@ -795,7 +803,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
             <InfoItem label="CNPJ" value={formatCnpj(empresa.cnpj)} />
-            <InfoItem label="Capital Social" value={formatCurrency(empresa.capital_social)} highlight />
+            <InfoItem label="Capital Social" value={formatCompact(empresa.capital_social)} highlight />
             <InfoItem label="Porte" value={empresa.porte} />
             <InfoItem label="CNAE" value={empresa.cnae_fiscal_descricao} />
             <InfoItem label="Natureza Jurídica" value={empresa.natureza_juridica} />
