@@ -730,10 +730,28 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
     }
   };
 
-  // Auto-trigger credit search on mount
+  // Auto-trigger ALL searches on mount
   useEffect(() => {
     verificarCreditoInternacional();
+    buscarFaturamento();
+    buscarDividas();
+    buscarPortalTransparencia();
+    buscarGarantias();
+    buscarEndividamentoBancario();
   }, []);
+
+  // Progress tracking
+  const searches = [
+    { label: 'Crédito Internacional', loading: creditoIntLoading, done: !!creditoIntData, error: !!creditoIntError, icon: '🌐' },
+    { label: 'Faturamento', loading: faturamentoLoading, done: !!faturamentoData, error: !!faturamentoError, icon: '📊' },
+    { label: 'Dívidas', loading: dividasLoading, done: !!dividasData, error: !!dividasError, icon: '💰' },
+    { label: 'Transparência', loading: portalLoading, done: !!portalData, error: !!portalError, icon: '⚖️' },
+    { label: 'Garantias', loading: garantiasLoading, done: !!garantiasData, error: !!garantiasError, icon: '🛡️' },
+    { label: 'Endividamento', loading: endividamentoLoading, done: !!endividamentoData, error: !!endividamentoError, icon: '🏦' },
+  ];
+  const completedCount = searches.filter(s => s.done || s.error).length;
+  const allDone = completedCount === searches.length;
+  const progressPercent = Math.round((completedCount / searches.length) * 100);
 
   const buscarEndividamentoBancario = async () => {
     setEndividamentoLoading(true);
@@ -754,7 +772,107 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
 
   return (
     <div className="space-y-4">
-      {/* DESTAQUE: Crédito Internacional Verificado */}
+      {/* PROGRESS DASHBOARD */}
+      {!allDone && (
+        <Card className="border-2 border-primary/30 bg-gradient-to-r from-primary/5 to-accent/10 overflow-hidden">
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-sm font-bold text-foreground">Analisando empresa...</span>
+              </div>
+              <Badge variant="outline" className="text-xs">{completedCount}/{searches.length}</Badge>
+            </div>
+            <Progress value={progressPercent} className="h-2 mb-3" />
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {searches.map((s, i) => (
+                <div key={i} className={`flex items-center gap-1.5 text-xs rounded-lg px-2 py-1.5 border transition-all ${
+                  s.done ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400' :
+                  s.error ? 'bg-destructive/10 border-destructive/30 text-destructive' :
+                  s.loading ? 'bg-primary/10 border-primary/30 text-primary animate-pulse' :
+                  'bg-muted/50 border-border text-muted-foreground'
+                }`}>
+                  {s.loading ? <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" /> :
+                   s.done ? <CheckCircle2 className="h-3 w-3 flex-shrink-0" /> :
+                   s.error ? <XCircle className="h-3 w-3 flex-shrink-0" /> :
+                   <span className="text-xs">{s.icon}</span>}
+                  <span className="truncate font-medium">{s.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* SUMMARY DASHBOARD - shows when all done */}
+      {allDone && (
+        <Card className="border-2 border-emerald-500/30 bg-gradient-to-r from-emerald-50/50 to-primary/5 dark:from-emerald-950/20 dark:to-primary/5 overflow-hidden">
+          <div className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4" />
+            ✅ Análise Completa — {empresa.razao_social}
+          </div>
+          <CardContent className="pt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {/* Crédito Internacional */}
+              <div className="rounded-xl border p-3 text-center bg-background">
+                <span className="text-lg">🌐</span>
+                <p className="text-xs font-bold mt-1 text-foreground">
+                  {creditoIntData?.status === 'confirmado' ? '✅ Confirmado' :
+                   creditoIntData?.status === 'provavel' ? '⚡ Provável' :
+                   creditoIntData?.status === 'possivel' ? '🔍 Possível' : '❌ N/A'}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Créd. Internac.</p>
+              </div>
+              {/* Faturamento */}
+              <div className="rounded-xl border p-3 text-center bg-background">
+                <span className="text-lg">📊</span>
+                <p className="text-xs font-bold mt-1 text-foreground">
+                  {faturamentoData?.estimativa?.anual
+                    ? (faturamentoData.estimativa.anual >= 1e9 ? `R$ ${(faturamentoData.estimativa.anual/1e9).toFixed(1)}B` : faturamentoData.estimativa.anual >= 1e6 ? `R$ ${(faturamentoData.estimativa.anual/1e6).toFixed(1)}M` : `R$ ${(faturamentoData.estimativa.anual/1e3).toFixed(0)}K`)
+                    : 'N/A'}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Fat. Anual</p>
+              </div>
+              {/* Dívidas */}
+              <div className="rounded-xl border p-3 text-center bg-background">
+                <span className="text-lg">💰</span>
+                <p className="text-xs font-bold mt-1 text-foreground">
+                  {dividasData ? Object.values(dividasData).reduce((a: number, s: any) => a + (s.encontrados || 0), 0) + ' registros' : 'N/A'}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Dívidas</p>
+              </div>
+              {/* Portal */}
+              <div className="rounded-xl border p-3 text-center bg-background">
+                <span className="text-lg">⚖️</span>
+                <p className="text-xs font-bold mt-1 text-foreground">
+                  {portalData?.resumo ? (portalData.resumo.sancoes?.length > 0 ? `⚠️ ${portalData.resumo.sancoes.length} sanções` : '✅ Regular') : 'N/A'}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Transparência</p>
+              </div>
+              {/* Garantias */}
+              <div className="rounded-xl border p-3 text-center bg-background">
+                <span className="text-lg">🛡️</span>
+                <p className="text-xs font-bold mt-1 text-foreground">
+                  {garantiasData?.estimativa?.capacidadeGarantia
+                    ? garantiasData.estimativa.capacidadeGarantia.charAt(0).toUpperCase() + garantiasData.estimativa.capacidadeGarantia.slice(1)
+                    : 'N/A'}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Garantias</p>
+              </div>
+              {/* Endividamento */}
+              <div className="rounded-xl border p-3 text-center bg-background">
+                <span className="text-lg">🏦</span>
+                <p className="text-xs font-bold mt-1 text-foreground">
+                  {endividamentoData?.nivel
+                    ? (endividamentoData.nivel === 'nenhum' ? '✅ Nenhum' : endividamentoData.nivel.charAt(0).toUpperCase() + endividamentoData.nivel.slice(1))
+                    : 'N/A'}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Endividamento</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <Card className={`border-2 overflow-hidden ${
         creditoIntData?.status === 'confirmado' ? 'border-emerald-500 bg-gradient-to-r from-emerald-50 to-emerald-100/50 dark:from-emerald-950/40 dark:to-emerald-900/20' :
         creditoIntData?.status === 'provavel' ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20' :
@@ -785,13 +903,6 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
           <CardDescription>Verifica se a empresa já possui ou utilizou crédito internacional (ACC, ACE, Carta de Crédito, BNDES-Exim, etc.)</CardDescription>
         </CardHeader>
         <CardContent>
-          {!creditoIntData && !creditoIntLoading && !creditoIntError && (
-            <Button onClick={verificarCreditoInternacional} className="gap-2">
-              <Globe className="h-4 w-4" />
-              Verificar Crédito Internacional
-            </Button>
-          )}
-
           {creditoIntLoading && (
             <div className="flex flex-col items-center gap-3 py-6">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -967,13 +1078,6 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
           <CardDescription>Estimativa baseada em dados públicos + busca de dados reais na web</CardDescription>
         </CardHeader>
         <CardContent>
-          {!faturamentoData && !faturamentoLoading && !faturamentoError && (
-            <Button onClick={buscarFaturamento} className="gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Calcular Faturamento Estimado
-            </Button>
-          )}
-
           {faturamentoLoading && (
             <div className="flex flex-col items-center gap-3 py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1219,13 +1323,6 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
           <CardDescription>Contratos, licitações, valores recebidos e sanções do governo federal</CardDescription>
         </CardHeader>
         <CardContent>
-          {!portalData && !portalLoading && !portalError && (
-            <Button onClick={buscarPortalTransparencia} className="gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white">
-              <Scale className="h-4 w-4" />
-              Consultar Portal da Transparência
-            </Button>
-          )}
-
           {portalLoading && (
             <div className="flex flex-col items-center gap-3 py-8">
               <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
@@ -1463,13 +1560,6 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
           <CardDescription>Dívida ativa, protestos em cartório e processos judiciais</CardDescription>
         </CardHeader>
         <CardContent>
-          {!dividasData && !dividasLoading && !dividasError && (
-            <Button onClick={buscarDividas} className="gap-2" variant="destructive">
-              <Search className="h-4 w-4" />
-              Buscar Dívidas e Pendências
-            </Button>
-          )}
-
           {dividasLoading && (
             <div className="flex flex-col items-center gap-3 py-8">
               <Loader2 className="h-8 w-8 animate-spin text-destructive" />
@@ -1666,13 +1756,6 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
           <CardDescription>SCR, empréstimos, financiamentos, debêntures, BNDES e inadimplência bancária</CardDescription>
         </CardHeader>
         <CardContent>
-          {!endividamentoData && !endividamentoLoading && !endividamentoError && (
-            <Button onClick={buscarEndividamentoBancario} className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
-              <Landmark className="h-4 w-4" />
-              Buscar Endividamento Bancário
-            </Button>
-          )}
-
           {endividamentoLoading && (
             <div className="flex flex-col items-center gap-3 py-8">
               <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
@@ -1857,13 +1940,6 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
           <CardDescription>Imóveis, veículos, patrimônio e capacidade de garantia da empresa</CardDescription>
         </CardHeader>
         <CardContent>
-          {!garantiasData && !garantiasLoading && !garantiasError && (
-            <Button onClick={buscarGarantias} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-              <Shield className="h-4 w-4" />
-              Verificar Garantias e Patrimônio
-            </Button>
-          )}
-
           {garantiasLoading && (
             <div className="flex flex-col items-center gap-3 py-8">
               <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
