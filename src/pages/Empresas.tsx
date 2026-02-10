@@ -772,6 +772,64 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
 
   return (
     <div className="space-y-4">
+      {/* COMPANY HEADER - moved to top */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-start gap-3">
+            <Button variant="ghost" size="icon" onClick={onBack}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-1 flex items-start justify-between">
+              <div>
+                <CardTitle className="text-xl">{empresa.razao_social}</CardTitle>
+                {empresa.nome_fantasia && (
+                  <CardDescription className="text-base mt-1">{empresa.nome_fantasia}</CardDescription>
+                )}
+              </div>
+              <Badge variant={empresa.situacao_cadastral === "ATIVA" ? "default" : "destructive"}>
+                {empresa.situacao_cadastral}
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
+            <InfoItem label="CNPJ" value={formatCnpj(empresa.cnpj)} />
+            <InfoItem label="Capital Social" value={formatCurrency(empresa.capital_social)} highlight />
+            <InfoItem label="Porte" value={empresa.porte} />
+            <InfoItem label="CNAE" value={empresa.cnae_fiscal_descricao} />
+            <InfoItem label="Natureza Jurídica" value={empresa.natureza_juridica} />
+            <InfoItem label="Início Atividade" value={empresa.data_inicio_atividade} />
+            <InfoItem label="Localização" value={`${empresa.municipio}/${empresa.uf}`} />
+            {empresa.ddd_telefone_1 && <InfoItem label="Telefone" value={empresa.ddd_telefone_1} />}
+          </div>
+          {/* Quick contact buttons */}
+          <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t">
+            {empresa.ddd_telefone_1 && (
+              <>
+                <a href={`https://wa.me/55${empresa.ddd_telefone_1.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" size="sm" className="gap-1.5 text-green-600 border-green-200 hover:bg-green-50">
+                    <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                  </Button>
+                </a>
+                <a href={`tel:${empresa.ddd_telefone_1}`}>
+                  <Button variant="outline" size="sm" className="gap-1.5">
+                    <Phone className="h-3.5 w-3.5" /> Ligar
+                  </Button>
+                </a>
+              </>
+            )}
+            {empresa.email && (
+              <a href={`mailto:${empresa.email}`}>
+                <Button variant="outline" size="sm" className="gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50">
+                  <Mail className="h-3.5 w-3.5" /> {empresa.email}
+                </Button>
+              </a>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* PROGRESS DASHBOARD */}
       {!allDone && (
         <Card className="border-2 border-primary/30 bg-gradient-to-r from-primary/5 to-accent/10 overflow-hidden">
@@ -809,11 +867,10 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
         <Card className="border-2 border-emerald-500/30 bg-gradient-to-r from-emerald-50/50 to-primary/5 dark:from-emerald-950/20 dark:to-primary/5 overflow-hidden">
           <div className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4" />
-            ✅ Análise Completa — {empresa.razao_social}
+            ✅ Análise Completa
           </div>
           <CardContent className="pt-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {/* Crédito Internacional */}
               <div className="rounded-xl border p-3 text-center bg-background">
                 <span className="text-lg">🌐</span>
                 <p className="text-xs font-bold mt-1 text-foreground">
@@ -823,7 +880,6 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Créd. Internac.</p>
               </div>
-              {/* Faturamento */}
               <div className="rounded-xl border p-3 text-center bg-background">
                 <span className="text-lg">📊</span>
                 <p className="text-xs font-bold mt-1 text-foreground">
@@ -833,7 +889,6 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Fat. Anual</p>
               </div>
-              {/* Dívidas */}
               <div className="rounded-xl border p-3 text-center bg-background">
                 <span className="text-lg">💰</span>
                 <p className="text-xs font-bold mt-1 text-foreground">
@@ -841,7 +896,6 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Dívidas</p>
               </div>
-              {/* Portal */}
               <div className="rounded-xl border p-3 text-center bg-background">
                 <span className="text-lg">⚖️</span>
                 <p className="text-xs font-bold mt-1 text-foreground">
@@ -849,7 +903,6 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Transparência</p>
               </div>
-              {/* Garantias */}
               <div className="rounded-xl border p-3 text-center bg-background">
                 <span className="text-lg">🛡️</span>
                 <p className="text-xs font-bold mt-1 text-foreground">
@@ -859,7 +912,6 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Garantias</p>
               </div>
-              {/* Endividamento */}
               <div className="rounded-xl border p-3 text-center bg-background">
                 <span className="text-lg">🏦</span>
                 <p className="text-xs font-bold mt-1 text-foreground">
@@ -873,6 +925,34 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
           </CardContent>
         </Card>
       )}
+
+      {/* TABBED CONTENT */}
+      <Tabs defaultValue="credito" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="credito" className="text-xs gap-1">
+            <Globe className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Crédito</span>
+          </TabsTrigger>
+          <TabsTrigger value="financeiro" className="text-xs gap-1">
+            <BarChart3 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Financeiro</span>
+          </TabsTrigger>
+          <TabsTrigger value="compliance" className="text-xs gap-1">
+            <Scale className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Compliance</span>
+          </TabsTrigger>
+          <TabsTrigger value="garantias" className="text-xs gap-1">
+            <Shield className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Garantias</span>
+          </TabsTrigger>
+          <TabsTrigger value="contatos" className="text-xs gap-1">
+            <Users className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Contatos</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* TAB: Crédito Internacional */}
+        <TabsContent value="credito" className="space-y-4">
       <Card className={`border-2 overflow-hidden ${
         creditoIntData?.status === 'confirmado' ? 'border-emerald-500 bg-gradient-to-r from-emerald-50 to-emerald-100/50 dark:from-emerald-950/40 dark:to-emerald-900/20' :
         creditoIntData?.status === 'provavel' ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20' :
@@ -1067,7 +1147,10 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
 
+        {/* TAB: Financeiro */}
+        <TabsContent value="financeiro" className="space-y-4">
       {/* Faturamento Estimado */}
       <Card className="border-2 border-primary/10">
         <CardHeader className="pb-3">
@@ -1218,90 +1301,176 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
         </CardContent>
       </Card>
 
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-start gap-3">
-            <Button variant="ghost" size="icon" onClick={onBack}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-1 flex items-start justify-between">
-              <div>
-                <CardTitle className="text-xl">{empresa.razao_social}</CardTitle>
-                {empresa.nome_fantasia && (
-                  <CardDescription className="text-base mt-1">{empresa.nome_fantasia}</CardDescription>
-                )}
-              </div>
-              <Badge variant={empresa.situacao_cadastral === "ATIVA" ? "default" : "destructive"}>
-                {empresa.situacao_cadastral}
-              </Badge>
-            </div>
+      {/* Endividamento Bancário */}
+      <Card className="border-2 border-amber-500/20 overflow-hidden">
+        {endividamentoData && (
+          <div className={`px-4 py-2 text-sm font-bold flex items-center gap-2 ${
+            endividamentoData.nivel === 'alto' ? 'bg-destructive text-destructive-foreground' :
+            endividamentoData.nivel === 'moderado' ? 'bg-amber-500 text-amber-950' :
+            endividamentoData.nivel === 'baixo' ? 'bg-yellow-400 text-yellow-950' :
+            endividamentoData.nivel === 'minimo' ? 'bg-blue-500 text-white' :
+            'bg-emerald-600 text-white'
+          }`}>
+            {endividamentoData.nivel === 'alto' && <><AlertTriangle className="h-4 w-4" /> ⚠️ {endividamentoData.status}</>}
+            {endividamentoData.nivel === 'moderado' && <><TrendingUp className="h-4 w-4" /> ⚡ {endividamentoData.status}</>}
+            {endividamentoData.nivel === 'baixo' && <><BarChart3 className="h-4 w-4" /> 📊 {endividamentoData.status}</>}
+            {endividamentoData.nivel === 'minimo' && <><Info className="h-4 w-4" /> 📋 {endividamentoData.status}</>}
+            {endividamentoData.nivel === 'nenhum' && <><ShieldCheck className="h-4 w-4" /> ✅ {endividamentoData.status}</>}
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <InfoItem label="CNPJ" value={formatCnpj(empresa.cnpj)} />
-            <InfoItem label="Capital Social" value={formatCurrency(empresa.capital_social)} highlight />
-            <InfoItem label="Porte" value={empresa.porte} />
-            <InfoItem label="Natureza Jurídica" value={empresa.natureza_juridica} />
-            <InfoItem label="CNAE" value={empresa.cnae_fiscal_descricao} />
-            <InfoItem label="Início Atividade" value={empresa.data_inicio_atividade} />
-            <InfoItem
-              label="Endereço"
-              value={`${empresa.logradouro}, ${empresa.numero} - ${empresa.bairro}, ${empresa.municipio}/${empresa.uf}`}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Contato da Empresa */}
-      <Card>
-        <CardHeader>
+        )}
+        <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Phone className="h-4 w-4" />
-            Contato da Empresa
+            <Landmark className="h-5 w-5 text-amber-600" />
+            Endividamento Bancário
           </CardTitle>
+          <CardDescription>SCR, empréstimos, financiamentos, debêntures, BNDES e inadimplência bancária</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-3">
-            {empresa.ddd_telefone_1 && (
-              <>
-                <a
-                  href={`https://wa.me/55${empresa.ddd_telefone_1.replace(/\D/g, "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Button variant="outline" className="gap-2 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700">
-                    <MessageCircle className="h-4 w-4" />
-                    WhatsApp
+          {endividamentoLoading && (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+              <p className="text-sm text-muted-foreground">Buscando endividamento bancário...</p>
+            </div>
+          )}
+          {endividamentoError && (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">Erro: {endividamentoError}</p>
+              <Button variant="outline" size="sm" onClick={buscarEndividamentoBancario}>Tentar novamente</Button>
+            </div>
+          )}
+          {endividamentoData && (() => {
+            const categorias = Object.entries(endividamentoData.categorias) as [string, any][];
+            const nivelColor = endividamentoData.nivel === 'alto' ? 'text-destructive' :
+                               endividamentoData.nivel === 'moderado' ? 'text-amber-600' :
+                               endividamentoData.nivel === 'baixo' ? 'text-yellow-600' :
+                               endividamentoData.nivel === 'minimo' ? 'text-blue-600' : 'text-emerald-600';
+            const nivelBg = endividamentoData.nivel === 'alto' ? 'from-destructive/10 to-destructive/5' :
+                            endividamentoData.nivel === 'moderado' ? 'from-amber-500/10 to-amber-500/5' :
+                            endividamentoData.nivel === 'baixo' ? 'from-yellow-500/10 to-yellow-500/5' :
+                            endividamentoData.nivel === 'minimo' ? 'from-blue-500/10 to-blue-500/5' : 'from-emerald-500/10 to-emerald-500/5';
+            return (
+              <div className="space-y-6 animate-fade-in">
+                <div className={`rounded-xl p-4 bg-gradient-to-br ${nivelBg} border`}>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className={`text-3xl font-black ${nivelColor}`}>{endividamentoData.totalRegistros}</div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Registros</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-black text-foreground">{endividamentoData.termosIdentificados?.length || 0}</div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Termos Bancários</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-black text-foreground">{endividamentoData.valoresEncontrados?.length || 0}</div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Valores</p>
+                    </div>
+                    <div className="text-center flex flex-col items-center justify-center">
+                      <Badge className={`text-xs ${
+                        endividamentoData.nivel === 'alto' ? 'bg-destructive/20 text-destructive border-destructive/30' :
+                        endividamentoData.nivel === 'moderado' ? 'bg-amber-100 text-amber-700 border-amber-300' :
+                        endividamentoData.nivel === 'baixo' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                        endividamentoData.nivel === 'minimo' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                        'bg-emerald-100 text-emerald-700 border-emerald-300'
+                      }`}>
+                        {endividamentoData.nivel === 'alto' ? '🔴' : endividamentoData.nivel === 'moderado' ? '🟠' : endividamentoData.nivel === 'baixo' ? '🟡' : endividamentoData.nivel === 'minimo' ? '🔵' : '🟢'} {endividamentoData.nivel.charAt(0).toUpperCase() + endividamentoData.nivel.slice(1)}
+                      </Badge>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-2">Nível</p>
+                    </div>
+                  </div>
+                </div>
+                {endividamentoData.termosIdentificados && endividamentoData.termosIdentificados.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                      <Landmark className="h-3 w-3" /> Termos Bancários Identificados
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {endividamentoData.termosIdentificados.map((t: string, i: number) => (
+                        <Badge key={i} variant="outline" className="text-xs capitalize border-amber-400/50 text-amber-700 dark:text-amber-400">🏦 {t}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {endividamentoData.valoresEncontrados && endividamentoData.valoresEncontrados.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                      <DollarSign className="h-3 w-3" /> Valores Mencionados
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {endividamentoData.valoresEncontrados.map((v: string, i: number) => (
+                        <Badge key={i} variant="outline" className="text-xs border-primary/30 text-primary">💰 {v}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {categorias.map(([key, section]) => {
+                    const configMap: Record<string, { icon: any; color: string; borderColor: string; bgColor: string; emoji: string }> = {
+                      scr_operacoes: { icon: <BarChart3 className="h-4 w-4" />, color: 'text-blue-600', borderColor: 'border-blue-300', bgColor: 'bg-blue-50 dark:bg-blue-950/20', emoji: '📊' },
+                      emprestimos_financiamentos: { icon: <DollarSign className="h-4 w-4" />, color: 'text-amber-600', borderColor: 'border-amber-300', bgColor: 'bg-amber-50 dark:bg-amber-950/20', emoji: '💳' },
+                      debentures_titulos: { icon: <FileText className="h-4 w-4" />, color: 'text-purple-600', borderColor: 'border-purple-300', bgColor: 'bg-purple-50 dark:bg-purple-950/20', emoji: '📜' },
+                      credito_rural_bndes: { icon: <Landmark className="h-4 w-4" />, color: 'text-green-600', borderColor: 'border-green-300', bgColor: 'bg-green-50 dark:bg-green-950/20', emoji: '🏛️' },
+                      inadimplencia: { icon: <AlertTriangle className="h-4 w-4" />, color: 'text-red-600', borderColor: 'border-red-300', bgColor: 'bg-red-50 dark:bg-red-950/20', emoji: '⚠️' },
+                    };
+                    const cfg = configMap[key] || { icon: <FileText className="h-4 w-4" />, color: 'text-muted-foreground', borderColor: 'border-border', bgColor: 'bg-muted/20', emoji: '📄' };
+                    const hasItems = section.items && section.items.length > 0;
+                    return (
+                      <Card key={key} className={`${cfg.borderColor} border overflow-hidden`}>
+                        <div className={`${cfg.bgColor} px-3 py-2 border-b ${cfg.borderColor}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className={cfg.color}>{cfg.icon}</span>
+                              <span className="text-xs font-bold">{section.label}</span>
+                            </div>
+                            <Badge variant={hasItems ? "default" : "secondary"} className="text-xs">{section.encontrados}</Badge>
+                          </div>
+                        </div>
+                        <div className="p-3">
+                          {section.valores && section.valores.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-3">
+                              {section.valores.slice(0, 4).map((v: string, i: number) => (
+                                <Badge key={i} variant="outline" className={`text-xs ${cfg.color} ${cfg.borderColor}`}>{v}</Badge>
+                              ))}
+                            </div>
+                          )}
+                          {hasItems ? (
+                            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                              {section.items.map((item: any, i: number) => (
+                                <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
+                                   className="block text-xs p-2 rounded-md border bg-background hover:bg-accent/50 transition-all hover:shadow-sm group">
+                                  <p className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">{cfg.emoji} {item.titulo}</p>
+                                  {item.descricao && <p className="text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>}
+                                  <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
+                                    <ExternalLink className="h-2.5 w-2.5" /> {item.fonte}
+                                  </div>
+                                </a>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-xs text-emerald-600 py-3 justify-center">
+                              <ShieldCheck className="h-4 w-4" /> <span className="font-medium">Nenhum registro</span>
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-center">
+                  <Button variant="ghost" size="sm" onClick={buscarEndividamentoBancario} className="gap-2 text-xs text-muted-foreground">
+                    <Search className="h-3 w-3" /> Buscar novamente
                   </Button>
-                </a>
-                <a href={`tel:${empresa.ddd_telefone_1}`}>
-                  <Button variant="outline" className="gap-2">
-                    <Phone className="h-4 w-4" />
-                    {empresa.ddd_telefone_1}
-                  </Button>
-                </a>
-              </>
-            )}
-            {empresa.email && (
-              <a href={`mailto:${empresa.email}`}>
-                <Button variant="outline" className="gap-2 text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700">
-                  <Mail className="h-4 w-4" />
-                  {empresa.email}
-                </Button>
-              </a>
-            )}
-            {!empresa.ddd_telefone_1 && !empresa.email && (
-              <p className="text-sm text-muted-foreground">Nenhum contato disponível na Receita Federal.</p>
-            )}
-          </div>
+                </div>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
+        </TabsContent>
 
+        {/* TAB: Compliance */}
+        <TabsContent value="compliance" className="space-y-4">
       {/* Portal da Transparência */}
       <Card className="border-2 border-indigo-500/20 overflow-hidden">
-        {/* Header with gradient */}
         {portalData && portalData.resumo && (
           <div className={`px-4 py-2 text-sm font-bold flex items-center gap-2 ${
             portalData.resumo.sancoes.length > 0
@@ -1314,7 +1483,6 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
             }
           </div>
         )}
-
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Scale className="h-5 w-5 text-indigo-600" />
@@ -1327,21 +1495,14 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
             <div className="flex flex-col items-center gap-3 py-8">
               <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
               <p className="text-sm text-muted-foreground">Consultando dados no Portal da Transparência...</p>
-              <div className="flex gap-6 text-xs text-muted-foreground">
-                <span className="animate-pulse">Contratos...</span>
-                <span className="animate-pulse" style={{ animationDelay: '0.3s' }}>Licitações...</span>
-                <span className="animate-pulse" style={{ animationDelay: '0.6s' }}>Sanções...</span>
-              </div>
             </div>
           )}
-
           {portalError && (
             <div className="space-y-2">
               <p className="text-sm text-destructive">Erro: {portalError}</p>
               <Button variant="outline" size="sm" onClick={buscarPortalTransparencia}>Tentar novamente</Button>
             </div>
           )}
-
           {portalData && portalData.resumo && (() => {
             const resumo = portalData.resumo;
             const totalContratos = resumo.contratos.length;
@@ -1349,25 +1510,20 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
             const totalSancoes = resumo.sancoes.length;
             const totalOutras = resumo.outrasInfos.length;
             const totalRegistros = totalContratos + totalValores + totalSancoes + totalOutras;
-
-            // Chart data for distribution
             const pieData = [
               { name: 'Contratos', value: totalContratos, fill: 'hsl(230, 70%, 55%)' },
               { name: 'Valores', value: totalValores, fill: 'hsl(145, 65%, 40%)' },
               { name: 'Sanções', value: totalSancoes, fill: 'hsl(0, 75%, 55%)' },
               { name: 'Outros', value: totalOutras, fill: 'hsl(270, 50%, 55%)' },
             ].filter(d => d.value > 0);
-
             const barData = [
               { categoria: 'Contratos', registros: totalContratos, fill: 'hsl(230, 70%, 55%)' },
               { categoria: 'Valores', registros: totalValores, fill: 'hsl(145, 65%, 40%)' },
               { categoria: 'Sanções', registros: totalSancoes, fill: 'hsl(0, 75%, 55%)' },
               { categoria: 'Outros', registros: totalOutras, fill: 'hsl(270, 50%, 55%)' },
             ];
-
             return (
               <div className="space-y-6 animate-fade-in">
-                {/* Summary Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="rounded-xl bg-gradient-to-br from-indigo-500/10 to-indigo-500/5 border border-indigo-200 dark:border-indigo-800 p-3 text-center">
                     <p className="text-3xl font-black text-indigo-600">{totalRegistros}</p>
@@ -1399,15 +1555,11 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Sanções</p>
                   </div>
                 </div>
-
-                {/* Charts Row */}
                 {totalRegistros > 0 && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Bar Chart */}
                     <div className="rounded-xl border bg-background p-4">
                       <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1">
-                        <BarChart3 className="h-3 w-3" />
-                        Distribuição por Categoria
+                        <BarChart3 className="h-3 w-3" /> Distribuição por Categoria
                       </p>
                       <div className="h-48">
                         <ResponsiveContainer width="100%" height="100%">
@@ -1425,30 +1577,16 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                         </ResponsiveContainer>
                       </div>
                     </div>
-
-                    {/* Pie Chart */}
                     <div className="rounded-xl border bg-background p-4">
                       <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1">
-                        <Info className="h-3 w-3" />
-                        Proporção dos Registros
+                        <Info className="h-3 w-3" /> Proporção dos Registros
                       </p>
                       <div className="h-48">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
-                            <Pie
-                              data={pieData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={40}
-                              outerRadius={70}
-                              paddingAngle={3}
-                              dataKey="value"
-                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                              labelLine={false}
-                            >
-                              {pieData.map((entry, i) => (
-                                <Cell key={i} fill={entry.fill} />
-                              ))}
+                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={3} dataKey="value"
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                              {pieData.map((entry, i) => (<Cell key={i} fill={entry.fill} />))}
                             </Pie>
                             <Tooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} />
                           </PieChart>
@@ -1457,53 +1595,38 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                     </div>
                   </div>
                 )}
-
-                {/* Contratos */}
                 {totalContratos > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <FileText className="h-3 w-3 text-indigo-600" />
-                      Contratos e Licitações ({totalContratos})
+                      <FileText className="h-3 w-3 text-indigo-600" /> Contratos e Licitações ({totalContratos})
                     </p>
                     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                       {resumo.contratos.map((item: string, i: number) => (
-                        <p key={i} className="text-xs text-foreground p-2.5 rounded-lg border bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-200/50 dark:border-indigo-800/30 hover:bg-indigo-100/50 dark:hover:bg-indigo-950/40 transition-colors">
-                          📋 {item}
-                        </p>
+                        <p key={i} className="text-xs text-foreground p-2.5 rounded-lg border bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-200/50 dark:border-indigo-800/30">📋 {item}</p>
                       ))}
                     </div>
                   </div>
                 )}
-
-                {/* Valores Recebidos */}
                 {totalValores > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <DollarSign className="h-3 w-3 text-emerald-600" />
-                      Valores Recebidos ({totalValores})
+                      <DollarSign className="h-3 w-3 text-emerald-600" /> Valores Recebidos ({totalValores})
                     </p>
                     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                       {resumo.valoresRecebidos.map((item: string, i: number) => (
-                        <p key={i} className="text-xs text-foreground p-2.5 rounded-lg border bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/30 hover:bg-emerald-100/50 dark:hover:bg-emerald-950/40 transition-colors">
-                          💰 {item}
-                        </p>
+                        <p key={i} className="text-xs text-foreground p-2.5 rounded-lg border bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/30">💰 {item}</p>
                       ))}
                     </div>
                   </div>
                 )}
-
-                {/* Sanções */}
                 {totalSancoes > 0 ? (
                   <div className="space-y-2">
                     <p className="text-xs font-bold uppercase tracking-wider flex items-center gap-1 text-destructive">
-                      <AlertTriangle className="h-3 w-3" />
-                      ⚠️ Sanções e Penalidades ({totalSancoes})
+                      <AlertTriangle className="h-3 w-3" /> ⚠️ Sanções e Penalidades ({totalSancoes})
                     </p>
                     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                       {resumo.sancoes.map((item: string, i: number) => (
-                        <p key={i} className="text-xs text-destructive p-2.5 rounded-lg border border-destructive/30 bg-destructive/5 hover:bg-destructive/10 transition-colors">
-                          🚨 {item}
-                        </p>
+                        <p key={i} className="text-xs text-destructive p-2.5 rounded-lg border border-destructive/30 bg-destructive/5">🚨 {item}</p>
                       ))}
                     </div>
                   </div>
@@ -1513,35 +1636,24 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                     <span className="font-medium">Nenhuma sanção ou penalidade encontrada — empresa regular</span>
                   </div>
                 )}
-
-                {/* Outras Infos */}
                 {totalOutras > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <Info className="h-3 w-3 text-purple-600" />
-                      Outras Informações ({totalOutras})
+                      <Info className="h-3 w-3 text-purple-600" /> Outras Informações ({totalOutras})
                     </p>
                     <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                       {resumo.outrasInfos.map((item: string, i: number) => (
-                        <p key={i} className="text-xs text-foreground p-2.5 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors">
-                          {item}
-                        </p>
+                        <p key={i} className="text-xs text-foreground p-2.5 rounded-lg border bg-muted/30">{item}</p>
                       ))}
                     </div>
                   </div>
                 )}
-
-                {/* Actions */}
                 <div className="flex items-center justify-between pt-2 border-t">
                   <a href={portalData.url} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <ExternalLink className="h-3 w-3" />
-                      Ver no Portal da Transparência
-                    </Button>
+                    <Button variant="outline" size="sm" className="gap-2"><ExternalLink className="h-3 w-3" /> Ver no Portal</Button>
                   </a>
                   <Button variant="ghost" size="sm" onClick={buscarPortalTransparencia} className="gap-2 text-xs text-muted-foreground">
-                    <Search className="h-3 w-3" />
-                    Consultar novamente
+                    <Search className="h-3 w-3" /> Consultar novamente
                   </Button>
                 </div>
               </div>
@@ -1564,43 +1676,31 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
             <div className="flex flex-col items-center gap-3 py-8">
               <Loader2 className="h-8 w-8 animate-spin text-destructive" />
               <p className="text-sm text-muted-foreground">Buscando dívidas e pendências...</p>
-              <div className="flex gap-6 text-xs text-muted-foreground">
-                <span className="animate-pulse">Dívida Ativa...</span>
-                <span className="animate-pulse" style={{ animationDelay: '0.3s' }}>Protestos...</span>
-                <span className="animate-pulse" style={{ animationDelay: '0.6s' }}>Processos...</span>
-              </div>
             </div>
           )}
-
           {dividasError && (
             <div className="space-y-2">
               <p className="text-sm text-destructive">Erro: {dividasError}</p>
               <Button variant="outline" size="sm" onClick={buscarDividas}>Tentar novamente</Button>
             </div>
           )}
-
           {dividasData && (() => {
             const sections = Object.entries(dividasData) as [string, any][];
             const totalRegistros = sections.reduce((acc, [, s]) => acc + (s.encontrados || 0), 0);
             const totalValores = sections.reduce((acc, [, s]) => acc + (s.valores?.length || 0), 0);
-
             const chartData = sections.map(([key, section]) => ({
               name: key === 'divida_ativa' ? 'Dívida Ativa' : key === 'protestos' ? 'Protestos' : 'Processos',
               registros: section.encontrados || 0,
               fill: key === 'divida_ativa' ? 'hsl(var(--destructive))' : key === 'protestos' ? 'hsl(30, 90%, 50%)' : 'hsl(280, 60%, 50%)',
             }));
-
             const riskScore = Math.min(100, totalRegistros * 15 + totalValores * 10);
             const riskLevel = riskScore >= 60 ? 'Alto' : riskScore >= 30 ? 'Moderado' : riskScore > 0 ? 'Baixo' : 'Nenhum';
             const riskColor = riskScore >= 60 ? 'text-destructive' : riskScore >= 30 ? 'text-orange-500' : riskScore > 0 ? 'text-yellow-600' : 'text-green-600';
             const riskBg = riskScore >= 60 ? 'from-destructive/10 to-destructive/5' : riskScore >= 30 ? 'from-orange-500/10 to-orange-500/5' : riskScore > 0 ? 'from-yellow-500/10 to-yellow-500/5' : 'from-green-500/10 to-green-500/5';
-
             return (
               <div className="space-y-6 animate-fade-in">
-                {/* Risk Overview Dashboard */}
                 <div className={`rounded-xl p-4 bg-gradient-to-br ${riskBg} border`}>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {/* Risk Score */}
                     <div className="text-center">
                       <div className={`text-3xl font-black ${riskColor}`}>{riskScore}</div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Score de Risco</p>
@@ -1613,28 +1713,18 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                         {riskScore >= 60 ? '⚠️' : riskScore >= 30 ? '⚡' : riskScore > 0 ? '📊' : '✅'} {riskLevel}
                       </Badge>
                     </div>
-
-                    {/* Total records */}
                     <div className="text-center">
                       <div className="text-3xl font-black text-foreground">{totalRegistros}</div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Registros</p>
                     </div>
-
-                    {/* Chart mini */}
                     <div className="col-span-2 flex items-center justify-center gap-3">
                       {chartData.map((item, i) => (
                         <div key={i} className="flex flex-col items-center gap-1">
                           <div className="relative w-12 h-12">
                             <svg viewBox="0 0 36 36" className="w-12 h-12 -rotate-90">
                               <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted/30" />
-                              <circle
-                                cx="18" cy="18" r="14" fill="none"
-                                stroke={item.fill}
-                                strokeWidth="3"
-                                strokeDasharray={`${Math.min(88, item.registros * 17.6)} 88`}
-                                strokeLinecap="round"
-                                className="transition-all duration-1000"
-                              />
+                              <circle cx="18" cy="18" r="14" fill="none" stroke={item.fill} strokeWidth="3"
+                                strokeDasharray={`${Math.min(88, item.registros * 17.6)} 88`} strokeLinecap="round" className="transition-all duration-1000" />
                             </svg>
                             <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">{item.registros}</span>
                           </div>
@@ -1644,8 +1734,6 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                     </div>
                   </div>
                 </div>
-
-                {/* Detail Cards Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {sections.map(([key, section]) => {
                     const config = {
@@ -1653,9 +1741,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                       protestos: { icon: <Ban className="h-4 w-4" />, color: 'text-orange-600', borderColor: 'border-orange-300', bgColor: 'bg-orange-50 dark:bg-orange-950/20', emoji: '📋' },
                       processos: { icon: <Gavel className="h-4 w-4" />, color: 'text-purple-600', borderColor: 'border-purple-300', bgColor: 'bg-purple-50 dark:bg-purple-950/20', emoji: '⚖️' },
                     }[key] || { icon: <FileText className="h-4 w-4" />, color: 'text-muted-foreground', borderColor: 'border-border', bgColor: 'bg-muted/20', emoji: '📄' };
-
                     const hasItems = section.items && section.items.length > 0;
-
                     return (
                       <Card key={key} className={`${config.borderColor} border overflow-hidden`}>
                         <div className={`${config.bgColor} px-3 py-2 border-b ${config.borderColor}`}>
@@ -1664,229 +1750,14 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                               <span className={config.color}>{config.icon}</span>
                               <span className="text-xs font-bold">{section.label}</span>
                             </div>
-                            <Badge variant={hasItems ? "destructive" : "secondary"} className="text-xs">
-                              {section.encontrados}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        <div className="p-3">
-                          {/* Values found */}
-                          {section.valores && section.valores.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mb-3">
-                              {section.valores.slice(0, 4).map((v: string, i: number) => (
-                                <Badge key={i} variant="outline" className={`text-xs ${config.color} ${config.borderColor}`}>
-                                  {v}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-
-                          {hasItems ? (
-                            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                              {section.items.map((item: any, i: number) => (
-                                <a
-                                  key={i}
-                                  href={item.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="block text-xs p-2 rounded-md border bg-background hover:bg-accent/50 transition-all hover:shadow-sm group"
-                                >
-                                  <p className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                                    {config.emoji} {item.titulo}
-                                  </p>
-                                  {item.descricao && (
-                                    <p className="text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{item.descricao}</p>
-                                  )}
-                                  <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
-                                    <ExternalLink className="h-2.5 w-2.5" />
-                                    {item.fonte}
-                                  </div>
-                                </a>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2 text-xs text-green-600 py-3 justify-center">
-                              <ShieldCheck className="h-4 w-4" />
-                              <span className="font-medium">Nenhum registro</span>
-                            </div>
-                          )}
-                        </div>
-                      </Card>
-                    );
-                  })}
-                </div>
-
-                {/* Refresh button */}
-                <div className="flex justify-center">
-                  <Button variant="ghost" size="sm" onClick={buscarDividas} className="gap-2 text-xs text-muted-foreground">
-                    <Search className="h-3 w-3" />
-                    Buscar novamente
-                  </Button>
-                </div>
-              </div>
-            );
-          })()}
-        </CardContent>
-      </Card>
-
-      {/* Endividamento Bancário */}
-      <Card className="border-2 border-amber-500/20 overflow-hidden">
-        {endividamentoData && (
-          <div className={`px-4 py-2 text-sm font-bold flex items-center gap-2 ${
-            endividamentoData.nivel === 'alto' ? 'bg-destructive text-destructive-foreground' :
-            endividamentoData.nivel === 'moderado' ? 'bg-amber-500 text-amber-950' :
-            endividamentoData.nivel === 'baixo' ? 'bg-yellow-400 text-yellow-950' :
-            endividamentoData.nivel === 'minimo' ? 'bg-blue-500 text-white' :
-            'bg-emerald-600 text-white'
-          }`}>
-            {endividamentoData.nivel === 'alto' && <><AlertTriangle className="h-4 w-4" /> ⚠️ {endividamentoData.status}</>}
-            {endividamentoData.nivel === 'moderado' && <><TrendingUp className="h-4 w-4" /> ⚡ {endividamentoData.status}</>}
-            {endividamentoData.nivel === 'baixo' && <><BarChart3 className="h-4 w-4" /> 📊 {endividamentoData.status}</>}
-            {endividamentoData.nivel === 'minimo' && <><Info className="h-4 w-4" /> 📋 {endividamentoData.status}</>}
-            {endividamentoData.nivel === 'nenhum' && <><ShieldCheck className="h-4 w-4" /> ✅ {endividamentoData.status}</>}
-          </div>
-        )}
-
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Landmark className="h-5 w-5 text-amber-600" />
-            Endividamento Bancário
-          </CardTitle>
-          <CardDescription>SCR, empréstimos, financiamentos, debêntures, BNDES e inadimplência bancária</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {endividamentoLoading && (
-            <div className="flex flex-col items-center gap-3 py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
-              <p className="text-sm text-muted-foreground">Buscando endividamento bancário...</p>
-              <div className="flex gap-5 text-xs text-muted-foreground">
-                <span className="animate-pulse">SCR...</span>
-                <span className="animate-pulse" style={{ animationDelay: '0.2s' }}>Empréstimos...</span>
-                <span className="animate-pulse" style={{ animationDelay: '0.4s' }}>Debêntures...</span>
-                <span className="animate-pulse" style={{ animationDelay: '0.6s' }}>BNDES...</span>
-                <span className="animate-pulse" style={{ animationDelay: '0.8s' }}>Inadimplência...</span>
-              </div>
-            </div>
-          )}
-
-          {endividamentoError && (
-            <div className="space-y-2">
-              <p className="text-sm text-destructive">Erro: {endividamentoError}</p>
-              <Button variant="outline" size="sm" onClick={buscarEndividamentoBancario}>Tentar novamente</Button>
-            </div>
-          )}
-
-          {endividamentoData && (() => {
-            const categorias = Object.entries(endividamentoData.categorias) as [string, any][];
-            const nivelColor = endividamentoData.nivel === 'alto' ? 'text-destructive' :
-                               endividamentoData.nivel === 'moderado' ? 'text-amber-600' :
-                               endividamentoData.nivel === 'baixo' ? 'text-yellow-600' :
-                               endividamentoData.nivel === 'minimo' ? 'text-blue-600' : 'text-emerald-600';
-            const nivelBg = endividamentoData.nivel === 'alto' ? 'from-destructive/10 to-destructive/5' :
-                            endividamentoData.nivel === 'moderado' ? 'from-amber-500/10 to-amber-500/5' :
-                            endividamentoData.nivel === 'baixo' ? 'from-yellow-500/10 to-yellow-500/5' :
-                            endividamentoData.nivel === 'minimo' ? 'from-blue-500/10 to-blue-500/5' : 'from-emerald-500/10 to-emerald-500/5';
-
-            return (
-              <div className="space-y-6 animate-fade-in">
-                {/* Overview Dashboard */}
-                <div className={`rounded-xl p-4 bg-gradient-to-br ${nivelBg} border`}>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div className="text-center">
-                      <div className={`text-3xl font-black ${nivelColor}`}>{endividamentoData.totalRegistros}</div>
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Registros</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-3xl font-black text-foreground">{endividamentoData.termosIdentificados?.length || 0}</div>
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Termos Bancários</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-3xl font-black text-foreground">{endividamentoData.valoresEncontrados?.length || 0}</div>
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Valores</p>
-                    </div>
-                    <div className="text-center flex flex-col items-center justify-center">
-                      <Badge className={`text-xs ${
-                        endividamentoData.nivel === 'alto' ? 'bg-destructive/20 text-destructive border-destructive/30' :
-                        endividamentoData.nivel === 'moderado' ? 'bg-amber-100 text-amber-700 border-amber-300' :
-                        endividamentoData.nivel === 'baixo' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
-                        endividamentoData.nivel === 'minimo' ? 'bg-blue-100 text-blue-700 border-blue-300' :
-                        'bg-emerald-100 text-emerald-700 border-emerald-300'
-                      }`}>
-                        {endividamentoData.nivel === 'alto' ? '🔴' : endividamentoData.nivel === 'moderado' ? '🟠' : endividamentoData.nivel === 'baixo' ? '🟡' : endividamentoData.nivel === 'minimo' ? '🔵' : '🟢'} {endividamentoData.nivel.charAt(0).toUpperCase() + endividamentoData.nivel.slice(1)}
-                      </Badge>
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-2">Nível</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Termos Bancários Identificados */}
-                {endividamentoData.termosIdentificados && endividamentoData.termosIdentificados.length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
-                      <Landmark className="h-3 w-3" />
-                      Termos Bancários Identificados
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {endividamentoData.termosIdentificados.map((t: string, i: number) => (
-                        <Badge key={i} variant="outline" className="text-xs capitalize border-amber-400/50 text-amber-700 dark:text-amber-400">
-                          🏦 {t}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Valores Encontrados */}
-                {endividamentoData.valoresEncontrados && endividamentoData.valoresEncontrados.length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
-                      <DollarSign className="h-3 w-3" />
-                      Valores Mencionados
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {endividamentoData.valoresEncontrados.map((v: string, i: number) => (
-                        <Badge key={i} variant="outline" className="text-xs border-primary/30 text-primary">
-                          💰 {v}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Category Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {categorias.map(([key, section]) => {
-                    const configMap: Record<string, { icon: any; color: string; borderColor: string; bgColor: string; emoji: string }> = {
-                      scr_operacoes: { icon: <BarChart3 className="h-4 w-4" />, color: 'text-blue-600', borderColor: 'border-blue-300', bgColor: 'bg-blue-50 dark:bg-blue-950/20', emoji: '📊' },
-                      emprestimos_financiamentos: { icon: <DollarSign className="h-4 w-4" />, color: 'text-amber-600', borderColor: 'border-amber-300', bgColor: 'bg-amber-50 dark:bg-amber-950/20', emoji: '💳' },
-                      debentures_titulos: { icon: <FileText className="h-4 w-4" />, color: 'text-purple-600', borderColor: 'border-purple-300', bgColor: 'bg-purple-50 dark:bg-purple-950/20', emoji: '📜' },
-                      credito_rural_bndes: { icon: <Landmark className="h-4 w-4" />, color: 'text-green-600', borderColor: 'border-green-300', bgColor: 'bg-green-50 dark:bg-green-950/20', emoji: '🏛️' },
-                      inadimplencia: { icon: <AlertTriangle className="h-4 w-4" />, color: 'text-red-600', borderColor: 'border-red-300', bgColor: 'bg-red-50 dark:bg-red-950/20', emoji: '⚠️' },
-                    };
-                    const cfg = configMap[key] || { icon: <FileText className="h-4 w-4" />, color: 'text-muted-foreground', borderColor: 'border-border', bgColor: 'bg-muted/20', emoji: '📄' };
-                    const hasItems = section.items && section.items.length > 0;
-
-                    return (
-                      <Card key={key} className={`${cfg.borderColor} border overflow-hidden`}>
-                        <div className={`${cfg.bgColor} px-3 py-2 border-b ${cfg.borderColor}`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className={cfg.color}>{cfg.icon}</span>
-                              <span className="text-xs font-bold">{section.label}</span>
-                            </div>
-                            <Badge variant={hasItems ? "default" : "secondary"} className="text-xs">
-                              {section.encontrados}
-                            </Badge>
+                            <Badge variant={hasItems ? "destructive" : "secondary"} className="text-xs">{section.encontrados}</Badge>
                           </div>
                         </div>
                         <div className="p-3">
                           {section.valores && section.valores.length > 0 && (
                             <div className="flex flex-wrap gap-1 mb-3">
                               {section.valores.slice(0, 4).map((v: string, i: number) => (
-                                <Badge key={i} variant="outline" className={`text-xs ${cfg.color} ${cfg.borderColor}`}>
-                                  {v}
-                                </Badge>
+                                <Badge key={i} variant="outline" className={`text-xs ${config.color} ${config.borderColor}`}>{v}</Badge>
                               ))}
                             </div>
                           )}
@@ -1895,21 +1766,17 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                               {section.items.map((item: any, i: number) => (
                                 <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
                                    className="block text-xs p-2 rounded-md border bg-background hover:bg-accent/50 transition-all hover:shadow-sm group">
-                                  <p className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                                    {cfg.emoji} {item.titulo}
-                                  </p>
-                                  {item.descricao && <p className="text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>}
-                                  <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
-                                    <ExternalLink className="h-2.5 w-2.5" />
-                                    {item.fonte}
+                                  <p className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">{config.emoji} {item.titulo}</p>
+                                  {item.descricao && <p className="text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{item.descricao}</p>}
+                                  <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
+                                    <ExternalLink className="h-2.5 w-2.5" /> {item.fonte}
                                   </div>
                                 </a>
                               ))}
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2 text-xs text-emerald-600 py-3 justify-center">
-                              <ShieldCheck className="h-4 w-4" />
-                              <span className="font-medium">Nenhum registro</span>
+                            <div className="flex items-center gap-2 text-xs text-green-600 py-3 justify-center">
+                              <ShieldCheck className="h-4 w-4" /> <span className="font-medium">Nenhum registro</span>
                             </div>
                           )}
                         </div>
@@ -1917,11 +1784,9 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                     );
                   })}
                 </div>
-
                 <div className="flex justify-center">
-                  <Button variant="ghost" size="sm" onClick={buscarEndividamentoBancario} className="gap-2 text-xs text-muted-foreground">
-                    <Search className="h-3 w-3" />
-                    Buscar novamente
+                  <Button variant="ghost" size="sm" onClick={buscarDividas} className="gap-2 text-xs text-muted-foreground">
+                    <Search className="h-3 w-3" /> Buscar novamente
                   </Button>
                 </div>
               </div>
@@ -1929,7 +1794,10 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
           })()}
         </CardContent>
       </Card>
+        </TabsContent>
 
+        {/* TAB: Garantias */}
+        <TabsContent value="garantias" className="space-y-4">
       {/* Garantias & Patrimônio */}
       <Card className="border-2 border-emerald-500/10">
         <CardHeader className="pb-3">
@@ -1944,36 +1812,26 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
             <div className="flex flex-col items-center gap-3 py-8">
               <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
               <p className="text-sm text-muted-foreground">Verificando patrimônio e garantias...</p>
-              <div className="flex gap-6 text-xs text-muted-foreground">
-                <span className="animate-pulse">Imóveis...</span>
-                <span className="animate-pulse" style={{ animationDelay: '0.3s' }}>Veículos...</span>
-                <span className="animate-pulse" style={{ animationDelay: '0.6s' }}>Patrimônio...</span>
-              </div>
             </div>
           )}
-
           {garantiasError && (
             <div className="space-y-2">
               <p className="text-sm text-destructive">Erro: {garantiasError}</p>
               <Button variant="outline" size="sm" onClick={buscarGarantias}>Tentar novamente</Button>
             </div>
           )}
-
           {garantiasData && (() => {
             const est = garantiasData.estimativa;
             const sections = Object.entries(garantiasData.garantias) as [string, any][];
             const fmtVal = (v: number) => v >= 1_000_000_000 ? `R$ ${(v / 1_000_000_000).toFixed(1)}B` : v >= 1_000_000 ? `R$ ${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `R$ ${(v / 1_000).toFixed(0)}K` : `R$ ${v}`;
-
             const capColor = est.capacidadeGarantia === 'alta' ? 'text-emerald-600' :
                              est.capacidadeGarantia === 'média' ? 'text-yellow-600' :
                              est.capacidadeGarantia === 'baixa' ? 'text-orange-500' : 'text-red-500';
             const capBg = est.capacidadeGarantia === 'alta' ? 'from-emerald-500/10 to-emerald-500/5' :
                           est.capacidadeGarantia === 'média' ? 'from-yellow-500/10 to-yellow-500/5' :
                           est.capacidadeGarantia === 'baixa' ? 'from-orange-500/10 to-orange-500/5' : 'from-red-500/10 to-red-500/5';
-
             return (
               <div className="space-y-6 animate-fade-in">
-                {/* Guarantee Capacity Overview */}
                 <div className={`rounded-xl p-4 bg-gradient-to-br ${capBg} border`}>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div className="text-center">
@@ -1995,32 +1853,22 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                         est.capacidadeGarantia === 'baixa' ? 'bg-orange-100 text-orange-700 border-orange-300' :
                         'bg-red-100 text-red-700 border-red-300'
                       }`}>
-                        {est.capacidadeGarantia === 'alta' ? '🏛️' : est.capacidadeGarantia === 'média' ? '🏠' : '⚠️'} {est.capacidadeGarantia.charAt(0).toUpperCase() + est.capacidadeGarantia.slice(1)}
+                        {est.capacidadeGarantia === 'alta' ? '🟢' : est.capacidadeGarantia === 'média' ? '🟡' : est.capacidadeGarantia === 'baixa' ? '🟠' : '🔴'} {est.capacidadeGarantia.charAt(0).toUpperCase() + est.capacidadeGarantia.slice(1)}
                       </Badge>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-2">Capacidade</p>
                     </div>
                   </div>
-
-                  {/* Guarantee Bar */}
                   <div className="mt-4">
                     <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
                       <span>Garantia Mínima (30%)</span>
                       <span>Garantia Máxima (70%)</span>
                     </div>
                     <div className="relative h-4 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-1000"
-                        style={{ width: '70%' }}
-                      />
-                      <div
-                        className="absolute left-0 top-0 h-full rounded-full bg-emerald-700/50"
-                        style={{ width: '30%' }}
-                      />
+                      <div className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-1000" style={{ width: '70%' }} />
+                      <div className="absolute left-0 top-0 h-full rounded-full bg-emerald-700/50" style={{ width: '30%' }} />
                     </div>
                   </div>
                 </div>
-
-                {/* Asset Categories */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {sections.map(([key, section]) => {
                     const config = {
@@ -2028,9 +1876,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                       veiculos: { icon: <Car className="h-4 w-4" />, color: 'text-amber-600', borderColor: 'border-amber-300', bgColor: 'bg-amber-50 dark:bg-amber-950/20', emoji: '🚗' },
                       patrimonio: { icon: <Briefcase className="h-4 w-4" />, color: 'text-emerald-600', borderColor: 'border-emerald-300', bgColor: 'bg-emerald-50 dark:bg-emerald-950/20', emoji: '💼' },
                     }[key] || { icon: <FileText className="h-4 w-4" />, color: 'text-muted-foreground', borderColor: 'border-border', bgColor: 'bg-muted/20', emoji: '📄' };
-
                     const hasItems = section.items && section.items.length > 0;
-
                     return (
                       <Card key={key} className={`${config.borderColor} border overflow-hidden`}>
                         <div className={`${config.bgColor} px-3 py-2 border-b ${config.borderColor}`}>
@@ -2039,54 +1885,36 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                               <span className={config.color}>{config.icon}</span>
                               <span className="text-xs font-bold">{section.label}</span>
                             </div>
-                            <Badge variant={hasItems ? "default" : "secondary"} className="text-xs">
-                              {section.encontrados}
-                            </Badge>
+                            <Badge variant={hasItems ? "default" : "secondary"} className="text-xs">{section.encontrados}</Badge>
                           </div>
                         </div>
-
                         <div className="p-3">
                           {hasItems ? (
                             <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                               {section.items.map((item: any, i: number) => (
-                                <a
-                                  key={i}
-                                  href={item.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="block text-xs p-2 rounded-md border bg-background hover:bg-accent/50 transition-all hover:shadow-sm group"
-                                >
-                                  <p className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                                    {config.emoji} {item.titulo}
-                                  </p>
-                                  {item.descricao && (
-                                    <p className="text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>
-                                  )}
+                                <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
+                                   className="block text-xs p-2 rounded-md border bg-background hover:bg-accent/50 transition-all hover:shadow-sm group">
+                                  <p className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">{config.emoji} {item.titulo}</p>
+                                  {item.descricao && <p className="text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>}
                                   {(item.valores?.length > 0 || item.areas?.length > 0) && (
                                     <div className="flex flex-wrap gap-1 mt-1.5">
                                       {item.valores?.map((v: string, vi: number) => (
-                                        <Badge key={`v${vi}`} variant="outline" className={`text-[10px] ${config.color} ${config.borderColor}`}>
-                                          💰 {v}
-                                        </Badge>
+                                        <Badge key={`v${vi}`} variant="outline" className={`text-[10px] ${config.color} ${config.borderColor}`}>💰 {v}</Badge>
                                       ))}
                                       {item.areas?.map((a: string, ai: number) => (
-                                        <Badge key={`a${ai}`} variant="outline" className="text-[10px]">
-                                          📐 {a}
-                                        </Badge>
+                                        <Badge key={`a${ai}`} variant="outline" className="text-[10px]">📐 {a}</Badge>
                                       ))}
                                     </div>
                                   )}
                                   <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
-                                    <ExternalLink className="h-2.5 w-2.5" />
-                                    {item.fonte}
+                                    <ExternalLink className="h-2.5 w-2.5" /> {item.fonte}
                                   </div>
                                 </a>
                               ))}
                             </div>
                           ) : (
                             <div className="flex items-center gap-2 text-xs text-muted-foreground py-3 justify-center">
-                              <Search className="h-3 w-3" />
-                              Nenhum registro público encontrado
+                              <Search className="h-3 w-3" /> Nenhum registro público encontrado
                             </div>
                           )}
                         </div>
@@ -2094,21 +1922,16 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
                     );
                   })}
                 </div>
-
-                {/* Methodology note */}
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border text-xs text-muted-foreground">
                   <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-semibold mb-1">Sobre as Garantias</p>
-                    <p>Patrimônio estimado com base no Capital Social × Fator Porte ({est.multiplicador}x). A faixa de garantia (30-70%) representa a capacidade típica de oferecer bens como colateral. Dados de imóveis e veículos são de fontes públicas e podem não refletir a totalidade.</p>
+                    <p>Patrimônio estimado com base no Capital Social × Fator Porte ({est.multiplicador}x). A faixa de garantia (30-70%) representa a capacidade típica de oferecer bens como colateral.</p>
                   </div>
                 </div>
-
-                {/* Refresh */}
                 <div className="flex justify-center">
                   <Button variant="ghost" size="sm" onClick={buscarGarantias} className="gap-2 text-xs text-muted-foreground">
-                    <Search className="h-3 w-3" />
-                    Buscar novamente
+                    <Search className="h-3 w-3" /> Buscar novamente
                   </Button>
                 </div>
               </div>
@@ -2116,8 +1939,10 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
           })()}
         </CardContent>
       </Card>
+        </TabsContent>
 
-      {/* Quadro Societário com links de contato */}
+        {/* TAB: Contatos */}
+        <TabsContent value="contatos" className="space-y-4">
       {empresa.qsa && empresa.qsa.length > 0 && (
         <Card>
           <CardHeader>
@@ -2136,6 +1961,15 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
           </CardContent>
         </Card>
       )}
+      {(!empresa.qsa || empresa.qsa.length === 0) && (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            Nenhum sócio encontrado no cadastro.
+          </CardContent>
+        </Card>
+      )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
