@@ -730,6 +730,11 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCnpj }: {
     }
   };
 
+  // Auto-trigger credit search on mount
+  useEffect(() => {
+    verificarCreditoInternacional();
+  }, []);
+
   const buscarEndividamentoBancario = async () => {
     setEndividamentoLoading(true);
     setEndividamentoError(null);
