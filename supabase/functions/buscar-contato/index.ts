@@ -31,9 +31,40 @@ Deno.serve(async (req) => {
 
     let prompt: string;
     if (tipo === 'email') {
-      prompt = `Pesquise o email de contato profissional de "${nome}" da empresa "${empresaNome}". Informe todos os emails encontrados e suas fontes.`;
+      prompt = `Encontre o email profissional e pessoal de "${nome}", que é sócio/diretor da empresa "${empresaNome}" no Brasil.
+
+Pesquise em:
+- LinkedIn (perfil público)
+- Site institucional da empresa "${empresaNome}"
+- Registro.br / domínios associados
+- Reclame Aqui (respostas de representantes)
+- Jusbrasil, processos judiciais públicos
+- Publicações em diários oficiais
+- Artigos, entrevistas, palestras
+- Redes sociais (Twitter/X, Facebook)
+
+Liste TODOS os emails encontrados, um por linha, no formato:
+email@dominio.com — Fonte: [onde encontrou]
+
+Se não encontrar emails diretos, sugira o padrão provável do domínio da empresa (ex: nome@empresa.com.br).`;
     } else {
-      prompt = `Pesquise o telefone/WhatsApp de contato de "${nome}" da empresa "${empresaNome}". Informe todos os números encontrados e suas fontes.`;
+      prompt = `Encontre o telefone celular, WhatsApp ou telefone comercial direto de "${nome}", sócio/diretor da empresa "${empresaNome}" no Brasil.
+
+Pesquise em:
+- Site institucional da empresa "${empresaNome}" (página de contato, equipe)
+- LinkedIn (perfil público com telefone)
+- Google Maps / Google Meu Negócio da empresa
+- Reclame Aqui (telefones em respostas)
+- Jusbrasil, processos judiciais (citações com telefone)
+- Publicações em diários oficiais
+- Cartórios, registros comerciais
+- Redes sociais (Instagram bio, Facebook)
+- Sites de busca de telefone (Telelistas, 102, GuiaMais)
+
+Liste TODOS os telefones encontrados, um por linha, no formato:
+(XX) XXXXX-XXXX — Fonte: [onde encontrou]
+
+Priorize celulares (9 dígitos) pois são mais prováveis de ter WhatsApp.`;
     }
 
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
@@ -45,7 +76,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: 'sonar',
         messages: [
-          { role: 'system', content: 'Você é um assistente de pesquisa de contatos profissionais. Informe apenas dados públicos encontrados na web. Sempre em português.' },
+          { role: 'system', content: 'Você é um pesquisador especializado em encontrar informações de contato de executivos e empresários brasileiros usando fontes públicas da web. Seja minucioso e busque em múltiplas fontes. Sempre em português.' },
           { role: 'user', content: prompt },
         ],
         temperature: 0.1,
@@ -71,7 +102,7 @@ Deno.serve(async (req) => {
       const emails = content.match(emailRegex) || [];
       for (const email of emails) {
         const lower = email.toLowerCase();
-        if (!lower.includes('example') && !lower.includes('sentry') && !lower.includes('noreply') && !lower.includes('no-reply')) {
+        if (!lower.includes('example') && !lower.includes('sentry') && !lower.includes('noreply') && !lower.includes('no-reply') && !lower.includes('teste@') && !lower.includes('test@')) {
           if (!contacts.find(c => c.valor === lower)) {
             contacts.push({ valor: lower, fonte: citations[0] || 'Perplexity', tipo: 'email' });
           }
@@ -93,7 +124,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        contatos: contacts.slice(0, 5),
+        contatos: contacts.slice(0, 8),
         totalResultados: citations.length,
         resumo: content,
       }),

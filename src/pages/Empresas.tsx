@@ -1992,6 +1992,18 @@ function SocioContactCard({ socio, empresa }: { socio: { nome_socio: string; qua
   const [phoneLoading, setPhoneLoading] = useState(false);
   const [emailSearched, setEmailSearched] = useState(false);
   const [phoneSearched, setPhoneSearched] = useState(false);
+  const [resumo, setResumo] = useState<string | null>(null);
+  const [showResumo, setShowResumo] = useState(false);
+
+  // Auto-search on mount for decisores (administradores/diretores)
+  useEffect(() => {
+    const qualUpper = socio.qualificacao_socio?.toUpperCase() || '';
+    const isDecisor = ['ADMINISTRADOR', 'DIRETOR', 'PRESIDENTE', 'SÓCIO-ADMINISTRADOR', 'PROCURADOR'].some(q => qualUpper.includes(q));
+    if (isDecisor) {
+      buscarContato('email');
+      buscarContato('whatsapp');
+    }
+  }, []);
 
   const buscarContato = async (tipo: 'email' | 'whatsapp') => {
     const setLoading = tipo === 'email' ? setEmailLoading : setPhoneLoading;
@@ -2009,6 +2021,7 @@ function SocioContactCard({ socio, empresa }: { socio: { nome_socio: string; qua
       });
       if (error) throw error;
       setResults(data?.contatos || []);
+      if (data?.resumo) setResumo(data.resumo);
     } catch (err) {
       console.error(`Erro buscando ${tipo}:`, err);
     } finally {
@@ -2017,12 +2030,26 @@ function SocioContactCard({ socio, empresa }: { socio: { nome_socio: string; qua
     }
   };
 
+  const qualUpper = socio.qualificacao_socio?.toUpperCase() || '';
+  const isDecisor = ['ADMINISTRADOR', 'DIRETOR', 'PRESIDENTE', 'SÓCIO-ADMINISTRADOR', 'PROCURADOR'].some(q => qualUpper.includes(q));
+
+  const formatFonte = (fonte: string) => {
+    try { return new URL(fonte).hostname; } catch { return fonte; }
+  };
+
   return (
-    <div className="p-3 rounded-lg border bg-muted/30 space-y-3">
+    <div className={`p-3 rounded-lg border space-y-3 ${isDecisor ? 'bg-primary/5 border-primary/20' : 'bg-muted/30'}`}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <p className="font-medium text-foreground">{socio.nome_socio}</p>
-          <p className="text-xs text-muted-foreground">{socio.qualificacao_socio}</p>
+        <div className="flex items-center gap-2">
+          {isDecisor && (
+            <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+              Decisor
+            </Badge>
+          )}
+          <div>
+            <p className="font-medium text-foreground">{socio.nome_socio}</p>
+            <p className="text-xs text-muted-foreground">{socio.qualificacao_socio}</p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -2033,7 +2060,7 @@ function SocioContactCard({ socio, empresa }: { socio: { nome_socio: string; qua
             disabled={emailLoading}
           >
             {emailLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
-            Buscar Email
+            {emailSearched ? 'Rebuscar Email' : 'Buscar Email'}
           </Button>
           <Button
             size="sm"
@@ -2043,7 +2070,7 @@ function SocioContactCard({ socio, empresa }: { socio: { nome_socio: string; qua
             disabled={phoneLoading}
           >
             {phoneLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageCircle className="h-3 w-3" />}
-            Buscar WhatsApp
+            {phoneSearched ? 'Rebuscar WhatsApp' : 'Buscar WhatsApp'}
           </Button>
           <a
             href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(socio.nome_socio)}`}
@@ -2078,42 +2105,70 @@ function SocioContactCard({ socio, empresa }: { socio: { nome_socio: string; qua
         </div>
       </div>
 
-      {/* Email results */}
-      {emailSearched && (
-        <div className="pl-0 sm:pl-4">
-          {emailResults.length > 0 ? (
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground">📧 Emails encontrados:</p>
-              {emailResults.map((c, i) => (
-                <a key={i} href={`mailto:${c.valor}`} className="flex items-center gap-2 text-xs p-1.5 rounded border bg-background hover:bg-accent transition-colors">
-                  <Mail className="h-3 w-3 text-primary flex-shrink-0" />
-                  <span className="font-medium text-primary">{c.valor}</span>
-                  <span className="text-muted-foreground truncate ml-auto text-[10px]">{new URL(c.fonte).hostname}</span>
-                </a>
-              ))}
+      {/* Loading state */}
+      {(emailLoading || phoneLoading) && !emailSearched && !phoneSearched && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground pl-0 sm:pl-4">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Buscando contatos automaticamente...
+        </div>
+      )}
+
+      {/* Combined results row */}
+      {(emailSearched || phoneSearched) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-0 sm:pl-4">
+          {/* Emails */}
+          {emailSearched && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-1.5">📧 Emails</p>
+              {emailResults.length > 0 ? (
+                <div className="space-y-1">
+                  {emailResults.map((c, i) => (
+                    <a key={i} href={`mailto:${c.valor}`} className="flex items-center gap-2 text-xs p-1.5 rounded border bg-background hover:bg-accent transition-colors">
+                      <Mail className="h-3 w-3 text-primary flex-shrink-0" />
+                      <span className="font-medium text-primary truncate">{c.valor}</span>
+                      <span className="text-muted-foreground ml-auto text-[10px] flex-shrink-0">{formatFonte(c.fonte)}</span>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">Nenhum email encontrado</p>
+              )}
             </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">Nenhum email encontrado automaticamente.</p>
+          )}
+
+          {/* Telefones/WhatsApp */}
+          {phoneSearched && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-1.5">📱 WhatsApp / Telefone</p>
+              {phoneResults.length > 0 ? (
+                <div className="space-y-1">
+                  {phoneResults.map((c, i) => (
+                    <a key={i} href={`https://wa.me/55${c.valor.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs p-1.5 rounded border bg-background hover:bg-accent transition-colors">
+                      <MessageCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
+                      <span className="font-medium text-green-700">{c.valor}</span>
+                      <span className="text-muted-foreground ml-auto text-[10px] flex-shrink-0">{formatFonte(c.fonte)}</span>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">Nenhum telefone encontrado</p>
+              )}
+            </div>
           )}
         </div>
       )}
 
-      {/* Phone results */}
-      {phoneSearched && (
+      {/* Resumo expandível */}
+      {resumo && (
         <div className="pl-0 sm:pl-4">
-          {phoneResults.length > 0 ? (
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground">📱 Telefones encontrados:</p>
-              {phoneResults.map((c, i) => (
-                <a key={i} href={`https://wa.me/55${c.valor.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs p-1.5 rounded border bg-background hover:bg-accent transition-colors">
-                  <MessageCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
-                  <span className="font-medium text-green-700">{c.valor}</span>
-                  <span className="text-muted-foreground truncate ml-auto text-[10px]">{(() => { try { return new URL(c.fonte).hostname; } catch { return c.fonte; } })()}</span>
-                </a>
-              ))}
+          <button onClick={() => setShowResumo(!showResumo)} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+            <Info className="h-3 w-3" />
+            {showResumo ? 'Ocultar detalhes da pesquisa' : 'Ver detalhes da pesquisa'}
+          </button>
+          {showResumo && (
+            <div className="mt-2 p-2 rounded bg-muted/50 border text-xs text-muted-foreground whitespace-pre-wrap max-h-40 overflow-y-auto">
+              {resumo}
             </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">Nenhum telefone encontrado automaticamente.</p>
           )}
         </div>
       )}
