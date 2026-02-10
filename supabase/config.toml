@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.buscar-sancoes-gov]
 verify_jwt = false
+
+[functions.buscar-contato]
+verify_jwt = false
