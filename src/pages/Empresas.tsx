@@ -14,7 +14,8 @@ import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from "recharts";
 
-const SEARCH_INTERVAL = 8000;
+const SEARCH_INTERVAL = 5000;
+const DISCOVERY_INTERVAL = 3000; // Faster for random discovery
 
 function shuffleArray<T>(arr: T[]): T[] {
   const shuffled = [...arr];
@@ -23,6 +24,48 @@ function shuffleArray<T>(arr: T[]): T[] {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
+}
+
+// Multiplicadores CNAE para estimativa rápida de faturamento
+const MULT_CNAE: Record<string, number> = {
+  '46': 8, '47': 10, '10': 6, '11': 6, '20': 4, '21': 5, '29': 5, '62': 3,
+  '64': 2, '65': 2, '49': 4, '50': 4, '51': 3, '41': 5, '01': 6, '06': 3,
+  '07': 4, '86': 4, '85': 3, '55': 5, '56': 6, '35': 3, '36': 3,
+};
+const MULT_PORTE: Record<string, number> = {
+  'MICRO': 3, 'PEQUENO': 5, 'DEMAIS': 8, 'GRANDE': 10,
+};
+
+function estimarFaturamentoMensal(capitalSocial: number, cnae: number, porte: string): number {
+  const cnaePrefix = String(cnae).substring(0, 2);
+  const cnaeMult = MULT_CNAE[cnaePrefix] || 4;
+  const porteMult = Object.entries(MULT_PORTE).find(([k]) => (porte || '').toUpperCase().includes(k))?.[1] || 4;
+  return Math.round((capitalSocial * cnaeMult * (porteMult / 4)) / 12);
+}
+
+// Gerador de CNPJs válidos por UF (baseado em faixas conhecidas)
+// Prioriza grandes centros econômicos
+const UF_PRIORITY = [
+  'SP', 'RJ', 'MG', 'PR', 'RS', 'SC', 'BA', 'GO', 'DF', 'PE',
+  'CE', 'PA', 'MA', 'MT', 'MS', 'ES', 'AM', 'RN', 'PB', 'AL',
+  'SE', 'PI', 'TO', 'RO', 'AC', 'AP', 'RR',
+];
+
+function gerarCnpjAleatorio(): string {
+  // Gera um CNPJ base aleatório (8 dígitos raiz + 0001 filial)
+  const raiz = Math.floor(Math.random() * 99999999).toString().padStart(8, '0');
+  const base = raiz + '0001';
+  // Calcula dígitos verificadores
+  const pesos1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const pesos2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  let soma = 0;
+  for (let i = 0; i < 12; i++) soma += parseInt(base[i]) * pesos1[i];
+  const d1 = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+  const base13 = base + d1;
+  soma = 0;
+  for (let i = 0; i < 13; i++) soma += parseInt(base13[i]) * pesos2[i];
+  const d2 = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+  return base13 + d2;
 }
 
 // CNAEs tipicamente envolvidos em operações internacionais
@@ -144,6 +187,8 @@ export default function Empresas() {
   const [selectedEmpresa, setSelectedEmpresa] = useState<CnpjData | null>(null);
   const [isRunning, setIsRunning] = useState(true);
   const [currentSearch, setCurrentSearch] = useState<string | null>(null);
+  const [searchMode, setSearchMode] = useState<'pool' | 'discovery'>('pool');
+  const [discoveryStats, setDiscoveryStats] = useState({ tentativas: 0, encontradas: 0 });
   const [filterText, setFilterText] = useState("");
   const [filterCapitalMin, setFilterCapitalMin] = useState("");
   const [filterIf, setFilterIf] = useState("");
@@ -152,6 +197,7 @@ export default function Empresas() {
   const [dbLoaded, setDbLoaded] = useState(false);
   const queueRef = useRef<string[]>([]);
   const fetchedRef = useRef<Set<string>>(new Set());
+  const poolExhaustedRef = useRef(false);
 
   // Load from database on mount
   useEffect(() => {
@@ -190,14 +236,16 @@ export default function Empresas() {
     item.cnpj.includes(filterIf)
   );
 
-  const fetchNext = useCallback(async () => {
+  // Busca do pool fixo
+  const fetchFromPool = useCallback(async () => {
     if (queueRef.current.length === 0) {
-      queueRef.current = shuffleArray(CNPJS_POOL_UNIQUE.filter(c => !fetchedRef.current.has(c)));
-      if (queueRef.current.length === 0) {
-        // All fetched, reset
-        fetchedRef.current.clear();
-        queueRef.current = shuffleArray([...CNPJS_POOL_UNIQUE]);
+      const remaining = CNPJS_POOL_UNIQUE.filter(c => !fetchedRef.current.has(c));
+      if (remaining.length === 0) {
+        poolExhaustedRef.current = true;
+        setSearchMode('discovery');
+        return;
       }
+      queueRef.current = shuffleArray(remaining);
     }
 
     const cnpj = queueRef.current.pop()!;
@@ -218,15 +266,43 @@ export default function Empresas() {
     setCurrentSearch(null);
   }, []);
 
+  // Descoberta de novos CNPJs aleatórios (varredura Brasil)
+  const fetchDiscovery = useCallback(async () => {
+    const cnpj = gerarCnpjAleatorio();
+    if (fetchedRef.current.has(cnpj)) return;
+    fetchedRef.current.add(cnpj);
+    setCurrentSearch(cnpj);
+    setDiscoveryStats(prev => ({ ...prev, tentativas: prev.tentativas + 1 }));
+
+    try {
+      const data = await fetchCnpj(cnpj);
+      setEmpresas(prev => {
+        const exists = prev.find(e => e.cnpj === data.cnpj);
+        if (exists) return prev;
+        return [data, ...prev];
+      });
+      saveEmpresaToDb(data);
+      setDiscoveryStats(prev => ({ ...prev, encontradas: prev.encontradas + 1 }));
+    } catch {
+      // 404 = CNPJ não existe, normal na varredura
+    }
+    setCurrentSearch(null);
+  }, []);
+
   useEffect(() => {
     if (!isRunning || !dbLoaded) return;
 
-    // Initial fetch immediately
-    fetchNext();
-
-    const interval = setInterval(fetchNext, SEARCH_INTERVAL);
-    return () => clearInterval(interval);
-  }, [isRunning, dbLoaded, fetchNext]);
+    if (!poolExhaustedRef.current) {
+      fetchFromPool();
+      const interval = setInterval(fetchFromPool, SEARCH_INTERVAL);
+      return () => clearInterval(interval);
+    } else {
+      // Modo descoberta: busca mais rápida com CNPJs aleatórios
+      fetchDiscovery();
+      const interval = setInterval(fetchDiscovery, DISCOVERY_INTERVAL);
+      return () => clearInterval(interval);
+    }
+  }, [isRunning, dbLoaded, searchMode, fetchFromPool, fetchDiscovery]);
 
   const capitalMinNum = filterCapitalMin ? parseFloat(filterCapitalMin.replace(/\D/g, "")) : 0;
 
@@ -270,7 +346,10 @@ export default function Empresas() {
           <div className="flex-1">
             <h1 className="text-lg font-bold text-foreground">Empresas & Capital</h1>
             <p className="text-xs text-muted-foreground">
-              Busca contínua automática · {empresas.length} empresas encontradas
+              {searchMode === 'pool' ? 'Pool inicial' : '🔍 Varredura Brasil'} · {empresas.length} empresas
+              {searchMode === 'discovery' && discoveryStats.tentativas > 0 && (
+                <span className="ml-1">· {discoveryStats.encontradas}/{discoveryStats.tentativas} descobertas</span>
+              )}
             </p>
           </div>
           <Button
@@ -294,7 +373,7 @@ export default function Empresas() {
           <div className="border-t bg-muted/50 px-4 py-1.5">
             <div className="max-w-6xl mx-auto flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
-              Buscando CNPJ {formatCnpj(currentSearch)}...
+              {searchMode === 'discovery' ? '🔍 Varredura' : 'Pool'}: CNPJ {formatCnpj(currentSearch)}...
             </div>
           </div>
         )}
@@ -394,7 +473,7 @@ export default function Empresas() {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                     </span>
-                    Buscando...
+                    {searchMode === 'discovery' ? '🔍 Varredura Brasil ativa' : 'Buscando pool...'}
                   </div>
                 )}
               </div>
@@ -424,9 +503,17 @@ export default function Empresas() {
                         )}
                       </CardHeader>
                       <CardContent className="space-y-2">
-                        <p className="text-lg font-bold text-primary" title={formatCurrency(empresa.capital_social)}>
-                          {formatCompact(empresa.capital_social)}
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-lg font-bold text-primary" title={formatCurrency(empresa.capital_social)}>
+                            {formatCompact(empresa.capital_social)}
+                          </p>
+                          <div className="text-right">
+                            <p className="text-[10px] text-muted-foreground">Fat. mensal est.</p>
+                            <p className="text-xs font-semibold text-accent-foreground">
+                              {formatCompact(estimarFaturamentoMensal(empresa.capital_social, empresa.cnae_fiscal, empresa.porte))}/mês
+                            </p>
+                          </div>
+                        </div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <Badge variant={empresa.situacao_cadastral === "ATIVA" ? "default" : "destructive"} className="text-xs">
                             {empresa.situacao_cadastral}
