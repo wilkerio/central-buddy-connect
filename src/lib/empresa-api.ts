@@ -219,3 +219,6 @@ export const CNPJS_POOL = [
   "60894730000105", // Tupy
   "33000167000101", // Braskem
 ];
+
+// Deduplicate pool
+export const CNPJS_POOL_UNIQUE = [...new Set(CNPJS_POOL)];
