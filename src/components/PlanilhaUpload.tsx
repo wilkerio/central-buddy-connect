@@ -26,32 +26,64 @@ export default function PlanilhaUpload({ onEmpresaFound, onSaveEmpresa }: Planil
   const [isProcessing, setIsProcessing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Heuristics for detecting columns
+  const NAME_HEADERS = /^(nome|empresa|raz[aã]o|company|name|fantasia|firma|denominacao|denomina[çc][aã]o|fornecedor|cliente|parceiro|contratad[oa])/i;
+  const CNPJ_LIKE = /^\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}$/;
+  const NUMBER_LIKE = /^[\d.,R$%]+$/;
+
+  const detectNameColumn = (rows: string[][]): number => {
+    if (rows.length === 0) return 0;
+    const header = rows[0];
+    const cols = header?.length || 1;
+
+    // 1. Check headers for name-like labels
+    for (let c = 0; c < cols; c++) {
+      if (NAME_HEADERS.test((header[c] || "").toString().trim())) return c;
+    }
+
+    // 2. Heuristic: column with longest text values (non-numeric, non-CNPJ)
+    const scores = Array(cols).fill(0);
+    const sample = rows.slice(0, Math.min(20, rows.length));
+    for (const row of sample) {
+      for (let c = 0; c < cols; c++) {
+        const val = (row[c] || "").toString().trim();
+        if (!val || CNPJ_LIKE.test(val) || NUMBER_LIKE.test(val)) continue;
+        if (val.length >= 3) scores[c] += val.length;
+      }
+    }
+    const best = scores.indexOf(Math.max(...scores));
+    return best >= 0 ? best : 0;
+  };
+
+  const rowHasHeader = (row: string[]): boolean => {
+    return row.some(c => NAME_HEADERS.test((c || "").toString().trim()) ||
+      /^(cnpj|cpf|id|codigo|c[oó]digo|#|num|n[uú]mero|uf|estado|cidade)/i.test((c || "").toString().trim()));
+  };
+
   const parseFile = async (file: File) => {
     const ext = file.name.split(".").pop()?.toLowerCase();
+    let rows: string[][] = [];
 
     if (ext === "csv") {
       const text = await file.text();
-      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      // Skip header if it looks like one
-      const start = lines[0]?.match(/^(nome|empresa|razao|raz[aã]o)/i) ? 1 : 0;
-      return lines.slice(start).map(l => {
-        // Take first column if CSV
-        const parts = l.split(/[;,\t]/);
-        return parts[0].replace(/"/g, "").trim();
-      }).filter(Boolean);
+      rows = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+        .map(l => l.split(/[;,\t]/).map(c => c.replace(/"/g, "").trim()));
+    } else {
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      rows = (XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][])
+        .map(r => r.map(c => (c ?? "").toString().trim()));
     }
-
-    // Excel
-    const buffer = await file.arrayBuffer();
-    const wb = XLSX.read(buffer, { type: "array" });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
     if (rows.length === 0) return [];
 
-    // Find the column with company names (first text column)
-    const start = rows[0]?.[0]?.toString().match(/^(nome|empresa|razao|raz[aã]o)/i) ? 1 : 0;
-    return rows.slice(start).map(r => (r[0] || "").toString().trim()).filter(Boolean);
+    const col = detectNameColumn(rows);
+    const start = rowHasHeader(rows[0]) ? 1 : 0;
+
+    return rows.slice(start)
+      .map(r => (r[col] || "").toString().trim())
+      .filter(v => v.length >= 2 && !NUMBER_LIKE.test(v));
   };
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
