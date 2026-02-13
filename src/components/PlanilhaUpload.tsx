@@ -13,109 +13,154 @@ interface PlanilhaUploadProps {
   onSaveEmpresa: (empresa: CnpjData) => void;
 }
 
-interface ResolvedName {
+interface PlanilhaRow {
   nome: string;
   cnpj: string | null;
   status: "pending" | "resolving" | "fetching" | "done" | "error";
   error?: string;
 }
 
-export default function PlanilhaUpload({ onEmpresaFound, onSaveEmpresa }: PlanilhaUploadProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [nomes, setNomes] = useState<ResolvedName[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+const CNPJ_REGEX = /^\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}$/;
+const CNPJ_HEADER = /^(cnpj|cpf_cnpj|documento|doc)/i;
+const NAME_HEADERS = /^(nome|empresa|raz[aã]o|company|name|fantasia|firma|denominacao|denomina[çc][aã]o|fornecedor|cliente|parceiro|contratad[oa])/i;
+const NUMBER_LIKE = /^[\d.,R$%]+$/;
 
-  // Heuristics for detecting columns
-  const NAME_HEADERS = /^(nome|empresa|raz[aã]o|company|name|fantasia|firma|denominacao|denomina[çc][aã]o|fornecedor|cliente|parceiro|contratad[oa])/i;
-  const CNPJ_LIKE = /^\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}$/;
-  const NUMBER_LIKE = /^[\d.,R$%]+$/;
+function detectColumns(rows: string[][]): { nameCol: number; cnpjCol: number } {
+  if (rows.length === 0) return { nameCol: 0, cnpjCol: -1 };
+  const header = rows[0];
+  const cols = header?.length || 1;
 
-  const detectNameColumn = (rows: string[][]): number => {
-    if (rows.length === 0) return 0;
-    const header = rows[0];
-    const cols = header?.length || 1;
+  let nameCol = -1;
+  let cnpjCol = -1;
 
-    // 1. Check headers for name-like labels
+  // 1. Check headers
+  for (let c = 0; c < cols; c++) {
+    const h = (header[c] || "").toString().trim();
+    if (cnpjCol === -1 && CNPJ_HEADER.test(h)) cnpjCol = c;
+    if (nameCol === -1 && NAME_HEADERS.test(h)) nameCol = c;
+  }
+
+  // 2. Heuristic: scan data rows
+  const sample = rows.slice(1, Math.min(20, rows.length));
+
+  if (cnpjCol === -1) {
     for (let c = 0; c < cols; c++) {
-      if (NAME_HEADERS.test((header[c] || "").toString().trim())) return c;
+      const cnpjCount = sample.filter(r => CNPJ_REGEX.test((r[c] || "").toString().trim())).length;
+      if (cnpjCount >= sample.length * 0.5) { cnpjCol = c; break; }
     }
+  }
 
-    // 2. Heuristic: column with longest text values (non-numeric, non-CNPJ)
+  if (nameCol === -1) {
     const scores = Array(cols).fill(0);
-    const sample = rows.slice(0, Math.min(20, rows.length));
     for (const row of sample) {
       for (let c = 0; c < cols; c++) {
+        if (c === cnpjCol) continue;
         const val = (row[c] || "").toString().trim();
-        if (!val || CNPJ_LIKE.test(val) || NUMBER_LIKE.test(val)) continue;
+        if (!val || CNPJ_REGEX.test(val) || NUMBER_LIKE.test(val)) continue;
         if (val.length >= 3) scores[c] += val.length;
       }
     }
     const best = scores.indexOf(Math.max(...scores));
-    return best >= 0 ? best : 0;
-  };
+    nameCol = best >= 0 ? best : 0;
+  }
 
-  const rowHasHeader = (row: string[]): boolean => {
-    return row.some(c => NAME_HEADERS.test((c || "").toString().trim()) ||
-      /^(cnpj|cpf|id|codigo|c[oó]digo|#|num|n[uú]mero|uf|estado|cidade)/i.test((c || "").toString().trim()));
-  };
+  return { nameCol, cnpjCol };
+}
 
-  const parseFile = async (file: File) => {
+function hasHeaderRow(row: string[]): boolean {
+  return row.some(c => {
+    const v = (c || "").toString().trim();
+    return NAME_HEADERS.test(v) || CNPJ_HEADER.test(v) ||
+      /^(id|codigo|c[oó]digo|#|num|n[uú]mero|uf|estado|cidade)/i.test(v);
+  });
+}
+
+function parseRows(rows: string[][]): PlanilhaRow[] {
+  if (rows.length === 0) return [];
+
+  const { nameCol, cnpjCol } = detectColumns(rows);
+  const start = hasHeaderRow(rows[0]) ? 1 : 0;
+
+  return rows.slice(start).map(r => {
+    const rawCnpj = cnpjCol >= 0 ? (r[cnpjCol] || "").toString().trim() : "";
+    const cleanCnpj = rawCnpj.replace(/\D/g, "");
+    const hasCnpj = cleanCnpj.length === 14;
+
+    const nome = (r[nameCol] || "").toString().trim();
+
+    if (!nome && !hasCnpj) return null;
+
+    return {
+      nome: nome || (hasCnpj ? cleanCnpj : ""),
+      cnpj: hasCnpj ? cleanCnpj : null,
+      status: hasCnpj ? "fetching" as const : "pending" as const,
+    };
+  }).filter(Boolean) as PlanilhaRow[];
+}
+
+export default function PlanilhaUpload({ onEmpresaFound, onSaveEmpresa }: PlanilhaUploadProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [items, setItems] = useState<PlanilhaRow[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const readFile = async (file: File): Promise<string[][]> => {
     const ext = file.name.split(".").pop()?.toLowerCase();
-    let rows: string[][] = [];
-
     if (ext === "csv") {
       const text = await file.text();
-      rows = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+      return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
         .map(l => l.split(/[;,\t]/).map(c => c.replace(/"/g, "").trim()));
-    } else {
-      const buffer = await file.arrayBuffer();
-      const wb = XLSX.read(buffer, { type: "array" });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      rows = (XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][])
-        .map(r => r.map(c => (c ?? "").toString().trim()));
     }
-
-    if (rows.length === 0) return [];
-
-    const col = detectNameColumn(rows);
-    const start = rowHasHeader(rows[0]) ? 1 : 0;
-
-    return rows.slice(start)
-      .map(r => (r[col] || "").toString().trim())
-      .filter(v => v.length >= 2 && !NUMBER_LIKE.test(v));
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    return (XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][])
+      .map(r => r.map(c => (c ?? "").toString().trim()));
   };
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     try {
-      const names = await parseFile(file);
-      if (names.length === 0) return;
-
-      setNomes(names.map(n => ({ nome: n, cnpj: null, status: "pending" })));
+      const rows = await readFile(file);
+      const parsed = parseRows(rows);
+      if (parsed.length === 0) return;
+      setItems(parsed);
       setIsOpen(true);
     } catch (err) {
       console.error("Erro ao ler arquivo:", err);
     }
-
-    // Reset input
     if (fileRef.current) fileRef.current.value = "";
   };
 
   const processAll = async () => {
     setIsProcessing(true);
 
-    // Process in batches of 20
-    const pending = nomes.filter(n => n.status === "pending");
-    for (let i = 0; i < pending.length; i += 20) {
-      const batch = pending.slice(i, i + 20);
+    // 1. First, fetch all items that already have CNPJs (direct from Receita)
+    const withCnpj = items.filter(n => n.cnpj && n.status === "fetching");
+    for (const item of withCnpj) {
+      try {
+        const empresa = await fetchCnpj(item.cnpj!);
+        onEmpresaFound(empresa);
+        onSaveEmpresa(empresa);
+        setItems(prev => prev.map(n =>
+          n.cnpj === item.cnpj ? { ...n, status: "done" as const } : n
+        ));
+      } catch {
+        setItems(prev => prev.map(n =>
+          n.cnpj === item.cnpj ? { ...n, status: "error" as const, error: "CNPJ não encontrado na RF" } : n
+        ));
+      }
+    }
+
+    // 2. Then, resolve names without CNPJs via AI (in batches of 20)
+    const withoutCnpj = items.filter(n => !n.cnpj && n.status === "pending");
+    for (let i = 0; i < withoutCnpj.length; i += 20) {
+      const batch = withoutCnpj.slice(i, i + 20);
       const batchNames = batch.map(b => b.nome);
 
-      // Update status to resolving
-      setNomes(prev => prev.map(n =>
-        batchNames.includes(n.nome) ? { ...n, status: "resolving" as const } : n
+      setItems(prev => prev.map(n =>
+        batchNames.includes(n.nome) && n.status === "pending" ? { ...n, status: "resolving" as const } : n
       ));
 
       try {
@@ -124,58 +169,61 @@ export default function PlanilhaUpload({ onEmpresaFound, onSaveEmpresa }: Planil
         });
 
         if (error || !data?.success) {
-          setNomes(prev => prev.map(n =>
-            batchNames.includes(n.nome) ? { ...n, status: "error" as const, error: "Falha na resolução" } : n
+          setItems(prev => prev.map(n =>
+            batchNames.includes(n.nome) && n.status === "resolving"
+              ? { ...n, status: "error" as const, error: "Falha na resolução" } : n
           ));
           continue;
         }
 
         const resultados: { nome: string; cnpj: string }[] = data.resultados || [];
 
-        // Update CNPJs
-        setNomes(prev => prev.map(n => {
+        // Update and fetch resolved CNPJs
+        for (const item of batch) {
           const match = resultados.find(r =>
-            r.nome.toLowerCase() === n.nome.toLowerCase() ||
-            n.nome.toLowerCase().includes(r.nome.toLowerCase()) ||
-            r.nome.toLowerCase().includes(n.nome.toLowerCase())
+            r.nome.toLowerCase() === item.nome.toLowerCase() ||
+            item.nome.toLowerCase().includes(r.nome.toLowerCase()) ||
+            r.nome.toLowerCase().includes(item.nome.toLowerCase())
           );
-          if (match && match.cnpj && match.cnpj !== "desconhecido") {
-            return { ...n, cnpj: match.cnpj.replace(/\D/g, ""), status: "fetching" as const };
-          }
-          if (n.status === "resolving") {
-            return { ...n, status: "error" as const, error: "CNPJ não encontrado" };
-          }
-          return n;
-        }));
 
-        // Now fetch each resolved CNPJ
-        const resolved = resultados.filter(r => r.cnpj && r.cnpj !== "desconhecido");
-        for (const r of resolved) {
-          const cnpj = r.cnpj.replace(/\D/g, "");
-          if (cnpj.length !== 14) {
-            setNomes(prev => prev.map(n =>
-              n.cnpj === cnpj ? { ...n, status: "error" as const, error: "CNPJ inválido" } : n
+          if (!match || !match.cnpj || match.cnpj === "desconhecido") {
+            setItems(prev => prev.map(n =>
+              n.nome === item.nome && n.status === "resolving"
+                ? { ...n, status: "error" as const, error: "CNPJ não encontrado" } : n
             ));
             continue;
           }
+
+          const cnpj = match.cnpj.replace(/\D/g, "");
+          if (cnpj.length !== 14) {
+            setItems(prev => prev.map(n =>
+              n.nome === item.nome ? { ...n, status: "error" as const, error: "CNPJ inválido" } : n
+            ));
+            continue;
+          }
+
+          setItems(prev => prev.map(n =>
+            n.nome === item.nome ? { ...n, cnpj, status: "fetching" as const } : n
+          ));
 
           try {
             const empresa = await fetchCnpj(cnpj);
             onEmpresaFound(empresa);
             onSaveEmpresa(empresa);
-            setNomes(prev => prev.map(n =>
-              n.cnpj === cnpj ? { ...n, status: "done" as const } : n
+            setItems(prev => prev.map(n =>
+              n.nome === item.nome ? { ...n, status: "done" as const } : n
             ));
           } catch {
-            setNomes(prev => prev.map(n =>
-              n.cnpj === cnpj ? { ...n, status: "error" as const, error: "CNPJ não encontrado na RF" } : n
+            setItems(prev => prev.map(n =>
+              n.nome === item.nome ? { ...n, status: "error" as const, error: "CNPJ não encontrado na RF" } : n
             ));
           }
         }
       } catch (err) {
         console.error("Batch error:", err);
-        setNomes(prev => prev.map(n =>
-          batchNames.includes(n.nome) ? { ...n, status: "error" as const, error: "Erro de rede" } : n
+        setItems(prev => prev.map(n =>
+          batchNames.includes(n.nome) && n.status === "resolving"
+            ? { ...n, status: "error" as const, error: "Erro de rede" } : n
         ));
       }
     }
@@ -183,13 +231,14 @@ export default function PlanilhaUpload({ onEmpresaFound, onSaveEmpresa }: Planil
     setIsProcessing(false);
   };
 
-  const doneCount = nomes.filter(n => n.status === "done").length;
-  const errorCount = nomes.filter(n => n.status === "error").length;
-  const progress = nomes.length > 0 ? ((doneCount + errorCount) / nomes.length) * 100 : 0;
+  const doneCount = items.filter(n => n.status === "done").length;
+  const errorCount = items.filter(n => n.status === "error").length;
+  const withCnpjCount = items.filter(n => n.cnpj).length;
+  const withoutCnpjCount = items.filter(n => !n.cnpj).length;
+  const progress = items.length > 0 ? ((doneCount + errorCount) / items.length) * 100 : 0;
 
   return (
     <div className="space-y-3">
-      {/* Upload button */}
       <div className="flex items-center gap-2">
         <input
           ref={fileRef}
@@ -207,16 +256,21 @@ export default function PlanilhaUpload({ onEmpresaFound, onSaveEmpresa }: Planil
           <Upload className="h-4 w-4" />
           Importar Planilha
         </Button>
-        <span className="text-xs text-muted-foreground">CSV, XLSX — coluna com nomes de empresas</span>
+        <span className="text-xs text-muted-foreground">CSV, XLSX — com nomes e/ou CNPJs</span>
       </div>
 
-      {/* Processing panel */}
-      {isOpen && nomes.length > 0 && (
+      {isOpen && items.length > 0 && (
         <Card>
           <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              {nomes.length} empresas na planilha
+              {items.length} empresas
+              {withCnpjCount > 0 && (
+                <Badge variant="secondary" className="text-[10px]">{withCnpjCount} com CNPJ</Badge>
+              )}
+              {withoutCnpjCount > 0 && (
+                <Badge variant="outline" className="text-[10px]">{withoutCnpjCount} só nome</Badge>
+              )}
             </CardTitle>
             <div className="flex items-center gap-2">
               {!isProcessing && doneCount === 0 && (
@@ -225,7 +279,7 @@ export default function PlanilhaUpload({ onEmpresaFound, onSaveEmpresa }: Planil
                   Processar Todas
                 </Button>
               )}
-              <Button variant="ghost" size="icon" onClick={() => { setIsOpen(false); setNomes([]); }}>
+              <Button variant="ghost" size="icon" onClick={() => { setIsOpen(false); setItems([]); }}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -236,11 +290,11 @@ export default function PlanilhaUpload({ onEmpresaFound, onSaveEmpresa }: Planil
               <div className="flex gap-3 text-xs text-muted-foreground">
                 <span className="text-green-600">✓ {doneCount} ok</span>
                 <span className="text-destructive">✗ {errorCount} erros</span>
-                <span>{nomes.length - doneCount - errorCount} pendentes</span>
+                <span>{items.length - doneCount - errorCount} pendentes</span>
               </div>
             )}
             <div className="max-h-48 overflow-y-auto space-y-1">
-              {nomes.map((n, i) => (
+              {items.map((n, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs py-1 border-b border-border/50 last:border-0">
                   {n.status === "done" && <CheckCircle2 className="h-3 w-3 text-green-600 shrink-0" />}
                   {n.status === "error" && <XCircle className="h-3 w-3 text-destructive shrink-0" />}
