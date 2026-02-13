@@ -185,7 +185,7 @@ async function loadEmpresasFromDb(): Promise<CnpjData[]> {
 export default function Empresas() {
   const [empresas, setEmpresas] = useState<CnpjData[]>([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState<CnpjData | null>(null);
-  const [isRunning, setIsRunning] = useState(true);
+  const [isRunning, setIsRunning] = useState(false);
   const [currentSearch, setCurrentSearch] = useState<string | null>(null);
   const [searchMode, setSearchMode] = useState<'pool' | 'discovery'>('pool');
   const [discoveryStats, setDiscoveryStats] = useState({ tentativas: 0, encontradas: 0 });
