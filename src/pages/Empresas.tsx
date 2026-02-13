@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { fetchCnpj, fetchAllInstituicoesFinanceiras, CNPJS_POOL_UNIQUE, type CnpjData } from "@/lib/empresa-api";
+import PlanilhaUpload from "@/components/PlanilhaUpload";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -432,6 +433,17 @@ export default function Empresas() {
                   <span className="ml-2">Buscar CNPJ</span>
                 </Button>
               </form>
+
+              {/* Planilha upload */}
+              <PlanilhaUpload
+                onEmpresaFound={(empresa) => {
+                  setEmpresas(prev => {
+                    if (prev.find(e => e.cnpj === empresa.cnpj)) return prev;
+                    return [empresa, ...prev];
+                  });
+                }}
+                onSaveEmpresa={saveEmpresaToDb}
+              />
 
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="relative flex-1 max-w-sm">
