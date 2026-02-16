@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      empresa_contacts: {
+        Row: {
+          batch_id: string | null
+          cargo: string | null
+          cnpj: string
+          contato_nome: string | null
+          created_at: string
+          dados_extras: Json | null
+          email: string | null
+          id: string
+          nome_empresa: string | null
+          observacoes: string | null
+          score_potencial: number | null
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          batch_id?: string | null
+          cargo?: string | null
+          cnpj: string
+          contato_nome?: string | null
+          created_at?: string
+          dados_extras?: Json | null
+          email?: string | null
+          id?: string
+          nome_empresa?: string | null
+          observacoes?: string | null
+          score_potencial?: number | null
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          batch_id?: string | null
+          cargo?: string | null
+          cnpj?: string
+          contato_nome?: string | null
+          created_at?: string
+          dados_extras?: Json | null
+          email?: string | null
+          id?: string
+          nome_empresa?: string | null
+          observacoes?: string | null
+          score_potencial?: number | null
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "empresa_contacts_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "upload_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       empresas_cache: {
         Row: {
           cnpj: string
@@ -95,6 +151,33 @@ export type Database = {
           risk_classification?: string | null
           status?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      upload_batches: {
+        Row: {
+          arquivo_original: string | null
+          created_at: string
+          id: string
+          nome: string
+          total_empresas: number | null
+          total_processadas: number | null
+        }
+        Insert: {
+          arquivo_original?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          total_empresas?: number | null
+          total_processadas?: number | null
+        }
+        Update: {
+          arquivo_original?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          total_empresas?: number | null
+          total_processadas?: number | null
         }
         Relationships: []
       }
