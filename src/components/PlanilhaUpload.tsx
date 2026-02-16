@@ -255,6 +255,8 @@ export default function PlanilhaUpload({ onEmpresaFound, onSaveEmpresa, onBatchC
           n.cnpj === item.cnpj ? { ...n, status: "done" as const } : n
         ));
       } catch {
+        // Mesmo com erro, salva o contato da planilha pra não perder dados
+        await saveContact(item, item.cnpj!);
         setItems(prev => prev.map(n =>
           n.cnpj === item.cnpj ? { ...n, status: "error" as const, error: "CNPJ não encontrado na RF" } : n
         ));
@@ -294,6 +296,8 @@ export default function PlanilhaUpload({ onEmpresaFound, onSaveEmpresa, onBatchC
           );
 
           if (!match || !match.cnpj || match.cnpj === "desconhecido") {
+            // Salva contato mesmo sem CNPJ pra não perder dados da planilha
+            await saveContact(item, "DESCONHECIDO");
             setItems(prev => prev.map(n =>
               n.nome === item.nome && n.status === "resolving"
                 ? { ...n, status: "error" as const, error: "CNPJ não encontrado" } : n
@@ -323,6 +327,8 @@ export default function PlanilhaUpload({ onEmpresaFound, onSaveEmpresa, onBatchC
               n.nome === item.nome ? { ...n, status: "done" as const } : n
             ));
           } catch {
+            // Salva contato mesmo com erro na Receita
+            await saveContact(item, cnpj);
             setItems(prev => prev.map(n =>
               n.nome === item.nome ? { ...n, status: "error" as const, error: "CNPJ não encontrado na RF" } : n
             ));
