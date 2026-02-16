@@ -247,7 +247,8 @@ export default function Empresas() {
       data.forEach((r: any) => { contacts.set(r.cnpj, r); cnpjs.add(r.cnpj); });
       setBatchContacts(contacts);
       setBatchCnpjs(cnpjs);
-      setBatchAllContacts(data as any);
+      const sorted = [...data].sort((a, b) => (b.score_potencial || 0) - (a.score_potencial || 0));
+      setBatchAllContacts(sorted as any);
     }
   }, []);
 
