@@ -578,19 +578,28 @@ export default function Empresas() {
                     return (
                     <Card
                       key={empresa.cnpj}
-                      className="cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/30 animate-in fade-in slide-in-from-top-2 duration-500"
+                      className={`cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/30 animate-in fade-in slide-in-from-top-2 duration-500 ${idx < 3 && sortByRanking ? 'ring-2 ring-primary/20 border-primary/40' : ''}`}
                       onClick={() => setSelectedEmpresa(empresa)}
                     >
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-2">
-                          <CardTitle className="text-sm font-medium text-muted-foreground leading-tight flex-1">
-                            {empresa.nome_fantasia || empresa.razao_social}
-                          </CardTitle>
-                          {sortByRanking && (
-                            <Badge variant={idx < 3 ? "default" : "secondary"} className="text-[10px] shrink-0">
-                              #{idx + 1}
-                            </Badge>
-                          )}
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            {sortByRanking && (
+                              <span className={`text-lg font-black shrink-0 ${idx === 0 ? 'text-yellow-500' : idx === 1 ? 'text-gray-400' : idx === 2 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                                #{idx + 1}
+                              </span>
+                            )}
+                            <CardTitle className="text-sm font-medium text-muted-foreground leading-tight truncate">
+                              {empresa.nome_fantasia || empresa.razao_social}
+                            </CardTitle>
+                          </div>
+                          {/* Score de chance */}
+                          <div className={`shrink-0 flex flex-col items-center rounded-lg px-2 py-1 ${credito.score >= 70 ? 'bg-green-100 dark:bg-green-900/30' : credito.score >= 45 ? 'bg-yellow-100 dark:bg-yellow-900/30' : credito.score >= 25 ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
+                            <span className={`text-lg font-black ${credito.cor}`}>{credito.score}%</span>
+                            <span className={`text-[9px] font-bold uppercase ${credito.cor}`}>
+                              {credito.nivel === "alto" ? "🔥 TOP" : credito.nivel === "medio" ? "⚡ BOM" : credito.nivel === "baixo" ? "📊 MÉDIO" : "⚠️ BAIXO"}
+                            </span>
+                          </div>
                         </div>
                         {empresa.nome_fantasia && (
                           <CardDescription className="text-xs truncate">{empresa.razao_social}</CardDescription>
@@ -618,21 +627,13 @@ export default function Empresas() {
                           {empresa.municipio}/{empresa.uf}
                         </p>
 
-                        {/* Potencial Crédito Internacional */}
+                        {/* Barra de progresso + decisores */}
                         <div className="pt-1 border-t">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="text-xs font-medium flex items-center gap-1">
-                              <Globe className="h-3 w-3" />
-                              Crédito Internacional
-                            </p>
-                            <span className={`text-xs font-bold ${credito.cor}`}>
-                              {credito.score}%
-                            </span>
-                          </div>
                           <Progress value={credito.score} className="h-1.5" />
                           <div className="flex items-center justify-between mt-1">
-                            <span className={`text-[10px] font-semibold uppercase ${credito.cor}`}>
-                              {credito.nivel === "alto" ? "🔥 Alto" : credito.nivel === "medio" ? "⚡ Médio" : credito.nivel === "baixo" ? "📊 Baixo" : "⚠️ Muito Baixo"}
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <Globe className="h-3 w-3" />
+                              Potencial crédito intl.
                             </span>
                             {credito.decisores > 0 && (
                               <span className="text-[10px] text-muted-foreground">
