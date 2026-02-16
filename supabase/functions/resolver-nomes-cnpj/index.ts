@@ -21,10 +21,10 @@ Deno.serve(async (req) => {
     // Limit batch size
     const batch = nomes.slice(0, 20);
 
-    const apiKey = Deno.env.get('LOVABLE_API_KEY');
+    const apiKey = Deno.env.get('OPENAI_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ success: false, error: 'LOVABLE_API_KEY não configurada' }),
+        JSON.stringify({ success: false, error: 'OPENAI_API_KEY não configurada' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -37,14 +37,14 @@ Responda APENAS com um JSON array no formato:
 Empresas:
 ${batch.map((n: string, i: number) => `${i + 1}. ${n}`).join('\n')}`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
       }),
