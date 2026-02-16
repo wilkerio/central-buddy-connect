@@ -658,10 +658,12 @@ export default function Empresas() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {batchAllContacts.map((contact, idx) => {
+                              {[...batchAllContacts].map((contact) => {
                                 const empresa = empresas.find(e => e.cnpj === contact.cnpj || e.cnpj.replace(/\D/g, "") === contact.cnpj.replace(/\D/g, ""));
                                 const score = empresa ? calcularPotencialCreditoInternacional(empresa) : null;
                                 const scoreVal = score?.score ?? contact.score_potencial ?? 0;
+                                return { contact, empresa, scoreVal };
+                              }).sort((a, b) => b.scoreVal - a.scoreVal).map(({ contact, empresa, scoreVal }, idx) => {
                                 return (
                                   <TableRow
                                     key={contact.cnpj + idx}
