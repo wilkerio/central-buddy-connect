@@ -199,8 +199,10 @@ export default function Empresas() {
   const [sortByRanking, setSortByRanking] = useState(true);
   const [batches, setBatches] = useState<{ id: string; nome: string; total_empresas: number; created_at: string }[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
-  const [batchContacts, setBatchContacts] = useState<Map<string, { telefone: string | null; email: string | null; contato_nome: string | null; cargo: string | null }>>(new Map());
+  const [batchContacts, setBatchContacts] = useState<Map<string, { telefone: string | null; email: string | null; contato_nome: string | null; cargo: string | null; nome_empresa: string | null; dados_extras: any; score_potencial: number | null }>>(new Map());
   const [batchCnpjs, setBatchCnpjs] = useState<Set<string>>(new Set());
+  const [batchAllContacts, setBatchAllContacts] = useState<{ cnpj: string; telefone: string | null; email: string | null; contato_nome: string | null; cargo: string | null; nome_empresa: string | null; dados_extras: any; score_potencial: number | null }[]>([]);
+  const [batchViewMode, setBatchViewMode] = useState<'table' | 'cards'>('table');
   const queueRef = useRef<string[]>([]);
   const fetchedRef = useRef<Set<string>>(new Set());
   const poolExhaustedRef = useRef(false);
@@ -237,14 +239,15 @@ export default function Empresas() {
   }, []);
 
   const loadBatchContacts = useCallback(async (batchId: string | null) => {
-    if (!batchId) { setBatchContacts(new Map()); setBatchCnpjs(new Set()); return; }
-    const { data } = await supabase.from("empresa_contacts").select("cnpj, telefone, email, contato_nome, cargo").eq("batch_id", batchId);
+    if (!batchId) { setBatchContacts(new Map()); setBatchCnpjs(new Set()); setBatchAllContacts([]); return; }
+    const { data } = await supabase.from("empresa_contacts").select("cnpj, telefone, email, contato_nome, cargo, nome_empresa, dados_extras, score_potencial").eq("batch_id", batchId);
     if (data) {
-      const contacts = new Map<string, { telefone: string | null; email: string | null; contato_nome: string | null; cargo: string | null }>();
+      const contacts = new Map<string, { telefone: string | null; email: string | null; contato_nome: string | null; cargo: string | null; nome_empresa: string | null; dados_extras: any; score_potencial: number | null }>();
       const cnpjs = new Set<string>();
       data.forEach((r: any) => { contacts.set(r.cnpj, r); cnpjs.add(r.cnpj); });
       setBatchContacts(contacts);
       setBatchCnpjs(cnpjs);
+      setBatchAllContacts(data as any);
     }
   }, []);
 
@@ -571,38 +574,43 @@ export default function Empresas() {
                       <FileText className="h-4 w-4 text-primary" />
                       <span className="text-sm font-semibold">{batches.find(b => b.id === selectedBatch)?.nome}</span>
                       <Badge variant="secondary" className="text-xs">
-                        {filteredEmpresas.length} empresas
+                        {batchAllContacts.length} contatos
                       </Badge>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant={batchViewMode === 'table' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setBatchViewMode('table')}
+                        className="gap-1.5 text-xs"
+                      >
+                        <BarChart3 className="h-3.5 w-3.5" />
+                        Tabela
+                      </Button>
+                      <Button
+                        variant={batchViewMode === 'cards' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setBatchViewMode('cards')}
+                        className="gap-1.5 text-xs"
+                      >
+                        <Building2 className="h-3.5 w-3.5" />
+                        Cards
+                      </Button>
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
                       className="gap-1.5 text-xs"
                       onClick={() => {
-                        // Export CSV with ranking
-                        const rows = filteredEmpresas.map((emp, idx) => {
-                          const score = calcularPotencialCreditoInternacional(emp);
-                          const contact = batchContacts.get(emp.cnpj) || batchContacts.get(emp.cnpj.replace(/\D/g, ""));
-                          return {
-                            ranking: idx + 1,
-                            potencial: `${score.score}%`,
-                            nivel: score.nivel,
-                            empresa: emp.razao_social,
-                            fantasia: emp.nome_fantasia || "",
-                            cnpj: emp.cnpj,
-                            capital_social: emp.capital_social,
-                            porte: emp.porte,
-                            cidade: `${emp.municipio}/${emp.uf}`,
-                            telefone_planilha: contact?.telefone || "",
-                            email_planilha: contact?.email || "",
-                            contato: contact?.contato_nome || "",
-                            cargo: contact?.cargo || "",
-                            telefone_receita: emp.ddd_telefone_1 || "",
-                            email_receita: emp.email || "",
-                            decisores: score.decisores,
-                            situacao: emp.situacao_cadastral,
-                          };
-                        });
+                        const rows = batchAllContacts.map((c, idx) => ({
+                          ranking: idx + 1,
+                          empresa: c.nome_empresa || "",
+                          cnpj: c.cnpj,
+                          telefone: c.telefone || "",
+                          email: c.email || "",
+                          contato: c.contato_nome || "",
+                          cargo: c.cargo || "",
+                        }));
                         const headers = Object.keys(rows[0] || {});
                         const csvContent = [
                           headers.join(";"),
@@ -630,6 +638,97 @@ export default function Empresas() {
                       {sortByRanking ? "🏆 Ranking" : "Ranking"}
                     </Button>
                   </div>
+
+                  {/* TABLE VIEW */}
+                  {batchViewMode === 'table' && (
+                    <Card>
+                      <CardContent className="p-0">
+                        <div className="overflow-auto max-h-[70vh]">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/50">
+                                <TableHead className="w-12 text-center">#</TableHead>
+                                <TableHead>Empresa</TableHead>
+                                <TableHead>CNPJ</TableHead>
+                                <TableHead>Contato</TableHead>
+                                <TableHead>WhatsApp / Telefone</TableHead>
+                                <TableHead>Email</TableHead>
+                                <TableHead className="text-center">Score</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {batchAllContacts.map((contact, idx) => {
+                                const empresa = empresas.find(e => e.cnpj === contact.cnpj || e.cnpj.replace(/\D/g, "") === contact.cnpj.replace(/\D/g, ""));
+                                const score = empresa ? calcularPotencialCreditoInternacional(empresa) : null;
+                                const scoreVal = score?.score ?? contact.score_potencial ?? 0;
+                                return (
+                                  <TableRow
+                                    key={contact.cnpj + idx}
+                                    className="cursor-pointer hover:bg-muted/30"
+                                    onClick={() => {
+                                      if (empresa) setSelectedEmpresa(empresa);
+                                    }}
+                                  >
+                                    <TableCell className="text-center font-bold text-muted-foreground">{idx + 1}</TableCell>
+                                    <TableCell>
+                                      <div>
+                                        <p className="text-sm font-medium truncate max-w-[200px]">{contact.nome_empresa || empresa?.razao_social || "—"}</p>
+                                        {contact.cargo && <p className="text-xs text-muted-foreground">{contact.cargo}</p>}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-xs font-mono text-muted-foreground">{contact.cnpj}</TableCell>
+                                    <TableCell>
+                                      {contact.contato_nome ? (
+                                        <Badge variant="outline" className="gap-1 text-xs">
+                                          <Users className="h-2.5 w-2.5" />
+                                          {contact.contato_nome}
+                                        </Badge>
+                                      ) : "—"}
+                                    </TableCell>
+                                    <TableCell>
+                                      {contact.telefone ? (
+                                        <a
+                                          href={`https://wa.me/55${contact.telefone.replace(/\D/g, "").slice(0, 11)}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 hover:underline"
+                                        >
+                                          <MessageCircle className="h-3.5 w-3.5" />
+                                          {contact.telefone}
+                                        </a>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">—</span>
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
+                                      {contact.email ? (
+                                        <a
+                                          href={`mailto:${contact.email}`}
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                                        >
+                                          <Mail className="h-3.5 w-3.5" />
+                                          {contact.email}
+                                        </a>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">—</span>
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                      <span className={`text-sm font-bold ${scoreVal >= 70 ? 'text-green-600' : scoreVal >= 45 ? 'text-yellow-600' : scoreVal >= 25 ? 'text-orange-500' : 'text-red-500'}`}>
+                                        {scoreVal}%
+                                      </span>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               )}
 
@@ -649,7 +748,8 @@ export default function Empresas() {
                 </div>
               )}
 
-              {filteredEmpresas.length === 0 && empresas.length === 0 ? (
+              {/* Hide cards grid when batch table view is active */}
+              {selectedBatch && batchViewMode === 'table' ? null : filteredEmpresas.length === 0 && empresas.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   <p className="text-muted-foreground">Buscando empresas automaticamente...</p>
