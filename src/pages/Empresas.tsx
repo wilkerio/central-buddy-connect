@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign, Gavel, Ban, Receipt, BarChart3, Info, Home, Car, Briefcase, Shield, CheckCircle2, XCircle, HelpCircle, Zap } from "lucide-react";
+import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign, Gavel, Ban, Receipt, BarChart3, Info, Home, Car, Briefcase, Shield, CheckCircle2, XCircle, HelpCircle, Zap, Tag } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from "recharts";
@@ -196,6 +196,11 @@ export default function Empresas() {
   const [cnpjManual, setCnpjManual] = useState("");
   const [isManualLoading, setIsManualLoading] = useState(false);
   const [dbLoaded, setDbLoaded] = useState(false);
+  const [sortByRanking, setSortByRanking] = useState(true);
+  const [batches, setBatches] = useState<{ id: string; nome: string; total_empresas: number; created_at: string }[]>([]);
+  const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
+  const [batchContacts, setBatchContacts] = useState<Map<string, { telefone: string | null; email: string | null; contato_nome: string | null; cargo: string | null }>>(new Map());
+  const [batchCnpjs, setBatchCnpjs] = useState<Set<string>>(new Set());
   const queueRef = useRef<string[]>([]);
   const fetchedRef = useRef<Set<string>>(new Set());
   const poolExhaustedRef = useRef(false);
@@ -224,6 +229,27 @@ export default function Empresas() {
         }
       });
   }, []);
+
+  // Load batches and contacts
+  const loadBatches = useCallback(async () => {
+    const { data } = await supabase.from("upload_batches").select("id, nome, total_empresas, created_at").order("created_at", { ascending: false });
+    if (data) setBatches(data as any);
+  }, []);
+
+  const loadBatchContacts = useCallback(async (batchId: string | null) => {
+    if (!batchId) { setBatchContacts(new Map()); setBatchCnpjs(new Set()); return; }
+    const { data } = await supabase.from("empresa_contacts").select("cnpj, telefone, email, contato_nome, cargo").eq("batch_id", batchId);
+    if (data) {
+      const contacts = new Map<string, { telefone: string | null; email: string | null; contato_nome: string | null; cargo: string | null }>();
+      const cnpjs = new Set<string>();
+      data.forEach((r: any) => { contacts.set(r.cnpj, r); cnpjs.add(r.cnpj); });
+      setBatchContacts(contacts);
+      setBatchCnpjs(cnpjs);
+    }
+  }, []);
+
+  useEffect(() => { loadBatches(); }, [loadBatches]);
+  useEffect(() => { loadBatchContacts(selectedBatch); }, [selectedBatch, loadBatchContacts]);
 
   // Auto-load financial institutions
   const ifQuery = useQuery({
@@ -307,17 +333,32 @@ export default function Empresas() {
 
   const capitalMinNum = filterCapitalMin ? parseFloat(filterCapitalMin.replace(/\D/g, "")) : 0;
 
-  const filteredEmpresas = empresas.filter(e => {
-    // Text filter
-    if (filterText && !(
-      e.razao_social.toLowerCase().includes(filterText.toLowerCase()) ||
-      (e.nome_fantasia && e.nome_fantasia.toLowerCase().includes(filterText.toLowerCase())) ||
-      e.cnpj.includes(filterText.replace(/\D/g, ""))
-    )) return false;
-    // Capital filter
-    if (capitalMinNum > 0 && e.capital_social < capitalMinNum) return false;
-    return true;
-  });
+  const filteredEmpresas = useMemo(() => {
+    let result = empresas.filter(e => {
+      // Text filter
+      if (filterText && !(
+        e.razao_social.toLowerCase().includes(filterText.toLowerCase()) ||
+        (e.nome_fantasia && e.nome_fantasia.toLowerCase().includes(filterText.toLowerCase())) ||
+        e.cnpj.includes(filterText.replace(/\D/g, ""))
+      )) return false;
+      // Capital filter
+      if (capitalMinNum > 0 && e.capital_social < capitalMinNum) return false;
+      // Batch filter
+      if (selectedBatch && !batchCnpjs.has(e.cnpj) && !batchCnpjs.has(e.cnpj.replace(/\D/g, ""))) return false;
+      return true;
+    });
+
+    // Sort by ranking (potencial de crédito internacional)
+    if (sortByRanking) {
+      result = [...result].sort((a, b) => {
+        const scoreA = calcularPotencialCreditoInternacional(a).score;
+        const scoreB = calcularPotencialCreditoInternacional(b).score;
+        return scoreB - scoreA;
+      });
+    }
+
+    return result;
+  }, [empresas, filterText, capitalMinNum, selectedBatch, batchCnpjs, sortByRanking]);
 
   const formatCurrency = (val: number) =>
     val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -443,6 +484,7 @@ export default function Empresas() {
                   });
                 }}
                 onSaveEmpresa={saveEmpresaToDb}
+                onBatchComplete={() => loadBatches()}
               />
 
               <div className="flex items-center gap-3 flex-wrap">
@@ -490,6 +532,39 @@ export default function Empresas() {
                 )}
               </div>
 
+              {/* Categorias / Batches + Ranking */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant={sortByRanking ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSortByRanking(!sortByRanking)}
+                  className="gap-1.5 text-xs"
+                >
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  {sortByRanking ? "🏆 Ranking ativo" : "Ranking"}
+                </Button>
+                <Button
+                  variant={!selectedBatch ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedBatch(null)}
+                  className="text-xs"
+                >
+                  Todas ({empresas.length})
+                </Button>
+                {batches.map(b => (
+                  <Button
+                    key={b.id}
+                    variant={selectedBatch === b.id ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedBatch(selectedBatch === b.id ? null : b.id)}
+                    className="gap-1.5 text-xs"
+                  >
+                    <Tag className="h-3 w-3" />
+                    {b.nome} ({b.total_empresas})
+                  </Button>
+                ))}
+              </div>
+
               {filteredEmpresas.length === 0 && empresas.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -497,7 +572,7 @@ export default function Empresas() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredEmpresas.map((empresa) => {
+                  {filteredEmpresas.map((empresa, idx) => {
                     const credito = calcularPotencialCreditoInternacional(empresa);
                     const aciAnalysis = analyzedCnpjs.get(empresa.cnpj.replace(/\D/g, "")) || analyzedCnpjs.get(empresa.cnpj);
                     return (
@@ -507,9 +582,16 @@ export default function Empresas() {
                       onClick={() => setSelectedEmpresa(empresa)}
                     >
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground leading-tight">
-                          {empresa.nome_fantasia || empresa.razao_social}
-                        </CardTitle>
+                        <div className="flex items-start justify-between gap-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground leading-tight flex-1">
+                            {empresa.nome_fantasia || empresa.razao_social}
+                          </CardTitle>
+                          {sortByRanking && (
+                            <Badge variant={idx < 3 ? "default" : "secondary"} className="text-[10px] shrink-0">
+                              #{idx + 1}
+                            </Badge>
+                          )}
+                        </div>
                         {empresa.nome_fantasia && (
                           <CardDescription className="text-xs truncate">{empresa.razao_social}</CardDescription>
                         )}
@@ -593,41 +675,55 @@ export default function Empresas() {
                             </div>
                           )}
                         </div>
-
-
-
-                        {/* Contato direto */}
+                        {/* Contato direto (planilha + receita) */}
                         <div className="flex flex-wrap gap-1.5 pt-1 border-t">
-                          {empresa.email && (
-                            <a href={`mailto:${empresa.email}`} onClick={(e) => e.stopPropagation()} title={empresa.email}>
-                              <Badge variant="secondary" className="gap-1 text-xs cursor-pointer hover:bg-accent">
-                                <Mail className="h-3 w-3" />
-                                Email
-                              </Badge>
-                            </a>
-                          )}
-                          {empresa.ddd_telefone_1 && (
-                            <a
-                              href={`https://wa.me/55${empresa.ddd_telefone_1.replace(/\D/g, "")}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              title={empresa.ddd_telefone_1}
-                            >
-                              <Badge variant="secondary" className="gap-1 text-xs cursor-pointer hover:bg-accent text-green-700">
-                                <MessageCircle className="h-3 w-3" />
-                                WhatsApp
-                              </Badge>
-                            </a>
-                          )}
-                          {empresa.ddd_telefone_1 && (
-                            <a href={`tel:${empresa.ddd_telefone_1}`} onClick={(e) => e.stopPropagation()} title={empresa.ddd_telefone_1}>
-                              <Badge variant="secondary" className="gap-1 text-xs cursor-pointer hover:bg-accent">
-                                <Phone className="h-3 w-3" />
-                                {empresa.ddd_telefone_1}
-                              </Badge>
-                            </a>
-                          )}
+                          {(() => {
+                            const batchContact = batchContacts.get(empresa.cnpj) || batchContacts.get(empresa.cnpj.replace(/\D/g, ""));
+                            const emailToShow = batchContact?.email || empresa.email;
+                            const phoneToShow = batchContact?.telefone || empresa.ddd_telefone_1;
+                            const contactName = batchContact?.contato_nome;
+                            const contactCargo = batchContact?.cargo;
+                            return (
+                              <>
+                                {contactName && (
+                                  <Badge variant="outline" className="gap-1 text-[10px]">
+                                    <Users className="h-2.5 w-2.5" />
+                                    {contactName}{contactCargo ? ` · ${contactCargo}` : ""}
+                                  </Badge>
+                                )}
+                                {emailToShow && (
+                                  <a href={`mailto:${emailToShow}`} onClick={(e) => e.stopPropagation()} title={emailToShow}>
+                                    <Badge variant="secondary" className="gap-1 text-xs cursor-pointer hover:bg-accent">
+                                      <Mail className="h-3 w-3" />
+                                      Email
+                                    </Badge>
+                                  </a>
+                                )}
+                                {phoneToShow && (
+                                  <a
+                                    href={`https://wa.me/55${phoneToShow.replace(/\D/g, "")}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    title={phoneToShow}
+                                  >
+                                    <Badge variant="secondary" className="gap-1 text-xs cursor-pointer hover:bg-accent text-green-700">
+                                      <MessageCircle className="h-3 w-3" />
+                                      WhatsApp
+                                    </Badge>
+                                  </a>
+                                )}
+                                {phoneToShow && (
+                                  <a href={`tel:${phoneToShow}`} onClick={(e) => e.stopPropagation()} title={phoneToShow}>
+                                    <Badge variant="secondary" className="gap-1 text-xs cursor-pointer hover:bg-accent">
+                                      <Phone className="h-3 w-3" />
+                                      {phoneToShow}
+                                    </Badge>
+                                  </a>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
 
                         {/* Sócios resumo */}
