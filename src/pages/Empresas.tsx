@@ -1329,20 +1329,18 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
         <CardContent className="p-0">
           {/* KPI Grid - 5 colunas */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 divide-x divide-y md:divide-y-0 divide-border">
-            {/* Faturamento */}
+            {/* Capital Social */}
             <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => setActiveTab("financeiro")}>
               <div className="flex items-center gap-1.5 mb-1.5">
-                <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Faturamento</span>
+                <DollarSign className="h-3.5 w-3.5 text-blue-500" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Capital Social</span>
               </div>
-              {faturamentoLoading ? <Skeleton className="h-6 w-20" /> : (
-                <p className="text-lg font-black text-foreground">
-                  {faturamentoData?.estimativa?.anual
-                    ? (faturamentoData.estimativa.anual >= 1e9 ? `R$ ${(faturamentoData.estimativa.anual/1e9).toFixed(1)}B` : faturamentoData.estimativa.anual >= 1e6 ? `R$ ${(faturamentoData.estimativa.anual/1e6).toFixed(1)}M` : `R$ ${(faturamentoData.estimativa.anual/1e3).toFixed(0)}K`)
-                    : '—'}
-                </p>
-              )}
-              <span className="text-[9px] text-muted-foreground">anual estimado</span>
+              <p className="text-lg font-black text-foreground">
+                {empresa.capital_social
+                  ? (empresa.capital_social >= 1e9 ? `R$ ${(empresa.capital_social/1e9).toFixed(1)}B` : empresa.capital_social >= 1e6 ? `R$ ${(empresa.capital_social/1e6).toFixed(1)}M` : empresa.capital_social >= 1e3 ? `R$ ${(empresa.capital_social/1e3).toFixed(0)}K` : `R$ ${empresa.capital_social.toFixed(0)}`)
+                  : '—'}
+              </p>
+              <span className="text-[9px] text-muted-foreground">Receita Federal</span>
             </div>
 
             {/* Dívidas */}
