@@ -58,6 +58,16 @@ Deno.serve(async (req) => {
       }),
     });
 
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('Perplexity returned non-JSON:', text.substring(0, 200));
+      return new Response(
+        JSON.stringify({ success: false, error: `API retornou formato inesperado (${response.status})` }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const data = await response.json();
 
     if (!response.ok) {
