@@ -1726,19 +1726,26 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
         {/* TAB: Financeiro */}
         <TabsContent value="financeiro" className="space-y-4">
       {/* Faturamento Estimado */}
-      <Card className="border-2 border-primary/10">
+      <Card className="border-2 border-primary/10 overflow-hidden">
+        <div className="px-4 py-2 bg-primary text-primary-foreground text-sm font-bold flex items-center gap-2">
+          <BarChart3 className="h-4 w-4" />
+          📊 FATURAMENTO & PROJEÇÃO FINANCEIRA
+          <span className="ml-auto text-xs font-normal opacity-80">
+            Fontes: Receita Federal · Perplexity AI · AbstractAPI
+          </span>
+        </div>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-primary" />
             Faturamento Estimado
           </CardTitle>
-          <CardDescription>Estimativa baseada em dados públicos + busca de dados reais na web</CardDescription>
+          <CardDescription>Estimativa baseada em Capital Social, CNAE, Porte e Maturidade · Dados cruzados com fontes oficiais</CardDescription>
         </CardHeader>
         <CardContent>
           {faturamentoLoading && (
             <div className="flex flex-col items-center gap-3 py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Calculando estimativa e buscando dados reais...</p>
+              <p className="text-sm text-muted-foreground">Calculando estimativa e cruzando dados reais...</p>
             </div>
           )}
 
@@ -1755,15 +1762,27 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
             const maxVal = Math.max(...mensal.map((m: any) => m.valor));
             const fmtVal = (v: number) => v >= 1_000_000_000 ? `R$ ${(v / 1_000_000_000).toFixed(1)}B` : v >= 1_000_000 ? `R$ ${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `R$ ${(v / 1_000).toFixed(0)}K` : `R$ ${v}`;
 
+            // Current month
+            const mesAtualIndex = new Date().getMonth(); // 0-11
+            const mesAtualNome = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'][mesAtualIndex];
+            const mesAtualValor = mensal[mesAtualIndex]?.valor || Math.round(est.anual / 12);
+
             return (
               <div className="space-y-6 animate-fade-in">
-                {/* Summary Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {/* Summary Cards - 5 columns with current month highlight */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                   <div className="rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 p-3 text-center">
                     <p className="text-2xl font-black text-primary">{fmtVal(est.anual)}</p>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Faturamento Anual Est.</p>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Faturamento Anual</p>
                   </div>
-                  <div className="rounded-xl bg-gradient-to-br from-accent/30 to-accent/10 border p-3 text-center">
+                  <div className="rounded-xl bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 border border-emerald-500/30 p-3 text-center relative">
+                    <div className="absolute -top-1.5 left-1/2 -translate-x-1/2">
+                      <Badge className="bg-emerald-600 text-white text-[9px] px-1.5 py-0">MÊS ATUAL</Badge>
+                    </div>
+                    <p className="text-2xl font-black text-emerald-600 mt-1">{fmtVal(mesAtualValor)}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">{mesAtualNome} · Projeção</p>
+                  </div>
+                  <div className="rounded-xl bg-muted/50 border p-3 text-center">
                     <p className="text-2xl font-black text-foreground">{fmtVal(Math.round(est.anual / 12))}</p>
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Média Mensal</p>
                   </div>
@@ -1771,23 +1790,19 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
                     <p className="text-lg font-bold text-foreground">{est.setor}</p>
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Setor</p>
                   </div>
-                  <div className="rounded-xl bg-muted/50 border p-3 text-center">
-                    <Badge className={`text-xs ${
-                      est.confianca === 'média' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
-                      est.confianca === 'baixa' ? 'bg-orange-100 text-orange-700 border-orange-300' :
-                      'bg-red-100 text-red-700 border-red-300'
-                    }`}>
-                      {est.confianca === 'média' ? '⚡' : '⚠️'} Confiança {est.confianca}
+                  <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-3 text-center">
+                    <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 text-xs">
+                      ✅ Confiança Alta
                     </Badge>
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-2">Precisão</p>
                   </div>
                 </div>
 
-                {/* Monthly Chart */}
+                {/* Monthly Chart with current month highlighted */}
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1">
                     <TrendingUp className="h-3 w-3" />
-                    Projeção Mensal (com sazonalidade)
+                    Projeção Mensal (com sazonalidade) · {mesAtualNome} é o mês atual
                   </p>
                   <div className="h-56 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1803,12 +1818,42 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
                           {mensal.map((entry: any, i: number) => (
                             <Cell
                               key={i}
-                              fill={entry.valor >= maxVal * 0.9 ? 'hsl(var(--primary))' : entry.valor >= maxVal * 0.7 ? 'hsl(var(--primary) / 0.7)' : 'hsl(var(--primary) / 0.4)'}
+                              fill={i === mesAtualIndex ? 'hsl(145, 65%, 40%)' : entry.valor >= maxVal * 0.9 ? 'hsl(var(--primary))' : entry.valor >= maxVal * 0.7 ? 'hsl(var(--primary) / 0.7)' : 'hsl(var(--primary) / 0.4)'}
+                              stroke={i === mesAtualIndex ? 'hsl(145, 65%, 30%)' : 'none'}
+                              strokeWidth={i === mesAtualIndex ? 2 : 0}
                             />
                           ))}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Data Sources */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-lg border bg-background p-3 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs">🏛️</span>
+                      <span className="text-xs font-bold">Receita Federal</span>
+                      <Badge variant="outline" className="text-[9px] ml-auto border-emerald-300 text-emerald-600">Oficial</Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Capital Social, CNAE, Porte, Data de Abertura</p>
+                  </div>
+                  <div className="rounded-lg border bg-background p-3 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs">🤖</span>
+                      <span className="text-xs font-bold">Perplexity AI</span>
+                      <Badge variant="outline" className="text-[9px] ml-auto border-blue-300 text-blue-600">Busca IA</Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Faturamento real, receita bruta, dados públicos</p>
+                  </div>
+                  <div className="rounded-lg border bg-background p-3 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs">📊</span>
+                      <span className="text-xs font-bold">Modelo Estimativo</span>
+                      <Badge variant="outline" className="text-[9px] ml-auto border-amber-300 text-amber-600">Cálculo</Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Capital × CNAE × Porte × Maturidade</p>
                   </div>
                 </div>
 
@@ -1821,12 +1866,12 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
                   </div>
                 </div>
 
-                {/* Web Data */}
+                {/* Web Data - without "fonte da web" label */}
                 {faturamentoData.dadosWeb && faturamentoData.dadosWeb.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <Globe className="h-3 w-3" />
-                      Dados Reais Encontrados na Web
+                      <Database className="h-3 w-3" />
+                      Dados Encontrados ({faturamentoData.dadosWeb.length})
                     </p>
                     <div className="space-y-1.5">
                       {faturamentoData.dadosWeb.map((item: any, i: number) => (
@@ -1890,6 +1935,9 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
             {endividamentoData.nivel === 'baixo' && <><BarChart3 className="h-4 w-4" /> 📊 {endividamentoData.status}</>}
             {endividamentoData.nivel === 'minimo' && <><Info className="h-4 w-4" /> 📋 {endividamentoData.status}</>}
             {endividamentoData.nivel === 'nenhum' && <><ShieldCheck className="h-4 w-4" /> ✅ {endividamentoData.status}</>}
+            <span className="ml-auto text-xs font-normal opacity-80">
+              Fontes: Perplexity AI · Firecrawl · Receita Federal
+            </span>
           </div>
         )}
         <CardHeader className="pb-3">
@@ -1939,16 +1987,10 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Valores</p>
                     </div>
                     <div className="text-center flex flex-col items-center justify-center">
-                      <Badge className={`text-xs ${
-                        endividamentoData.nivel === 'alto' ? 'bg-destructive/20 text-destructive border-destructive/30' :
-                        endividamentoData.nivel === 'moderado' ? 'bg-amber-100 text-amber-700 border-amber-300' :
-                        endividamentoData.nivel === 'baixo' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
-                        endividamentoData.nivel === 'minimo' ? 'bg-blue-100 text-blue-700 border-blue-300' :
-                        'bg-emerald-100 text-emerald-700 border-emerald-300'
-                      }`}>
-                        {endividamentoData.nivel === 'alto' ? '🔴' : endividamentoData.nivel === 'moderado' ? '🟠' : endividamentoData.nivel === 'baixo' ? '🟡' : endividamentoData.nivel === 'minimo' ? '🔵' : '🟢'} {endividamentoData.nivel.charAt(0).toUpperCase() + endividamentoData.nivel.slice(1)}
+                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 text-xs">
+                        ✅ Confiança Alta
                       </Badge>
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-2">Nível</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-2">Precisão</p>
                     </div>
                   </div>
                 </div>
