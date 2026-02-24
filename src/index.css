@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,60 +6,13 @@
 
 @layer base {
   :root {
-    --background: 220 25% 96%;
-    --foreground: 220 40% 13%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 220 40% 13%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 40% 13%;
-
-    --primary: 220 65% 18%;
-    --primary-foreground: 45 60% 92%;
-
-    --secondary: 220 20% 92%;
-    --secondary-foreground: 220 40% 18%;
-
-    --muted: 220 18% 94%;
-    --muted-foreground: 220 12% 48%;
-
-    --accent: 38 80% 52%;
-    --accent-foreground: 220 40% 10%;
-
-    --destructive: 0 65% 48%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 220 18% 88%;
-    --input: 220 18% 86%;
-    --ring: 220 65% 18%;
-
-    --radius: 0.5rem;
-
-    --sidebar-background: 220 65% 14%;
-    --sidebar-foreground: 220 15% 85%;
-    --sidebar-primary: 38 80% 52%;
-    --sidebar-primary-foreground: 220 40% 10%;
-    --sidebar-accent: 220 50% 22%;
-    --sidebar-accent-foreground: 220 15% 85%;
-    --sidebar-border: 220 50% 22%;
-    --sidebar-ring: 38 80% 52%;
-
-    /* Custom tokens */
-    --success: 152 55% 38%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 220 40% 10%;
-  }
-
-  .dark {
     --background: 222 47% 6%;
     --foreground: 210 40% 96%;
 
-    --card: 222 47% 8%;
+    --card: 222 47% 9%;
     --card-foreground: 210 40% 96%;
 
-    --popover: 222 47% 8%;
+    --popover: 222 47% 9%;
     --popover-foreground: 210 40% 96%;
 
     --primary: 38 80% 52%;
@@ -69,17 +22,19 @@
     --secondary-foreground: 210 40% 96%;
 
     --muted: 220 40% 14%;
-    --muted-foreground: 215 20% 60%;
+    --muted-foreground: 215 20% 55%;
 
     --accent: 38 80% 52%;
     --accent-foreground: 222 47% 6%;
 
-    --destructive: 0 62% 30%;
+    --destructive: 0 62% 45%;
     --destructive-foreground: 210 40% 96%;
 
     --border: 220 40% 16%;
     --input: 220 40% 16%;
     --ring: 38 80% 52%;
+
+    --radius: 0.75rem;
 
     --sidebar-background: 222 47% 5%;
     --sidebar-foreground: 220 15% 85%;
@@ -90,10 +45,15 @@
     --sidebar-border: 220 40% 12%;
     --sidebar-ring: 38 80% 52%;
 
-    --success: 152 55% 38%;
+    --success: 152 55% 42%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 220 40% 10%;
+
+    /* Futuristic tokens */
+    --glow-primary: 38 80% 52%;
+    --glow-blue: 210 100% 60%;
+    --surface-elevated: 222 47% 11%;
   }
 }
 
@@ -108,23 +68,109 @@
   }
 
   h1, h2, h3 {
-    font-family: 'Inter', system-ui, sans-serif;
-    letter-spacing: -0.025em;
+    font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+    letter-spacing: -0.03em;
   }
 }
 
 @layer utilities {
   .text-gradient {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, hsl(38 80% 52%), hsl(38 90% 65%));
+    background-image: linear-gradient(135deg, hsl(38 80% 52%), hsl(45 90% 65%));
+  }
+
+  .text-gradient-blue {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(210 100% 60%), hsl(190 90% 55%));
   }
 
   .glass-card {
-    @apply bg-card/80 backdrop-blur-xl border border-border/50;
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+    @apply backdrop-blur-xl border border-border/40;
+    background: linear-gradient(135deg, hsl(222 47% 9% / 0.8), hsl(222 47% 12% / 0.6));
+    box-shadow: 0 0 0 1px hsl(220 40% 18% / 0.3), 0 8px 32px -8px rgb(0 0 0 / 0.4);
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-500;
+  }
+  .glass-card-hover:hover {
+    box-shadow: 0 0 0 1px hsl(38 80% 52% / 0.2), 0 8px 40px -8px hsl(38 80% 52% / 0.15), 0 0 60px -12px hsl(38 80% 52% / 0.1);
+    border-color: hsl(38 80% 52% / 0.3);
   }
 
   .shadow-corporate {
-    box-shadow: 0 4px 24px -4px rgb(0 0 0 / 0.08), 0 1px 2px rgb(0 0 0 / 0.04);
+    box-shadow: 0 4px 24px -4px rgb(0 0 0 / 0.3), 0 0 0 1px hsl(220 40% 18% / 0.4);
+  }
+
+  .shadow-glow {
+    box-shadow: 0 0 20px -5px hsl(38 80% 52% / 0.25), 0 0 40px -10px hsl(38 80% 52% / 0.1);
+  }
+
+  .shadow-glow-blue {
+    box-shadow: 0 0 20px -5px hsl(210 100% 60% / 0.25), 0 0 40px -10px hsl(210 100% 60% / 0.1);
+  }
+
+  .surface-elevated {
+    background: linear-gradient(180deg, hsl(222 47% 11%), hsl(222 47% 8%));
+  }
+
+  .border-glow {
+    border-image: linear-gradient(135deg, hsl(38 80% 52% / 0.4), transparent 60%) 1;
+  }
+
+  .dot-grid {
+    background-image: radial-gradient(hsl(220 40% 20% / 0.5) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .line-grid {
+    background-image: 
+      linear-gradient(hsl(220 40% 16% / 0.3) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(220 40% 16% / 0.3) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .futuristic-border {
+    position: relative;
+  }
+  .futuristic-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, hsl(38 80% 52% / 0.4), transparent 40%, transparent 60%, hsl(210 100% 60% / 0.2));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-6px); }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
   }
 }
