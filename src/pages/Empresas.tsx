@@ -1425,6 +1425,16 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
             }
             if (allDividaItems.length === 0) return null;
 
+            // Build chart data by type
+            const chartDataMap: Record<string, number> = {};
+            for (const [tipo, section] of Object.entries(dividasData) as [string, any][]) {
+              if (section.encontrados > 0) {
+                chartDataMap[section.label || tipo] = section.encontrados;
+              }
+            }
+            const dividasChartData = Object.entries(chartDataMap).map(([name, value]) => ({ name, value }));
+            const DIVIDA_COLORS = ['hsl(0, 72%, 51%)', 'hsl(38, 92%, 50%)', 'hsl(25, 95%, 53%)', 'hsl(280, 67%, 50%)'];
+
             return (
               <div className="border-t">
                 <div className="px-5 py-3 bg-destructive/5 flex items-center justify-between">
@@ -1437,6 +1447,81 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
                     Ver todas <ChevronRight className="h-3 w-3" />
                   </Button>
                 </div>
+
+                {/* Gráfico de Dívidas por Tipo */}
+                {dividasChartData.length > 0 && (
+                  <div className="px-5 py-4 border-b bg-card/50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Bar Chart */}
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Distribuição por Tipo</p>
+                        <ResponsiveContainer width="100%" height={160}>
+                          <BarChart data={dividasChartData} layout="vertical" margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                            <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                            <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={120} />
+                            <Tooltip
+                              contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                              formatter={(value: number) => [`${value} registros`, 'Quantidade']}
+                            />
+                            <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24}>
+                              {dividasChartData.map((_, idx) => (
+                                <Cell key={idx} fill={DIVIDA_COLORS[idx % DIVIDA_COLORS.length]} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Pie Chart */}
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Proporção</p>
+                        <ResponsiveContainer width="100%" height={160}>
+                          <PieChart>
+                            <Pie
+                              data={dividasChartData}
+                              dataKey="value"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={60}
+                              innerRadius={30}
+                              strokeWidth={2}
+                              stroke="hsl(var(--card))"
+                              label={({ name, percent }) => `${name.split(' ')[0]} ${(percent * 100).toFixed(0)}%`}
+                            >
+                              {dividasChartData.map((_, idx) => (
+                                <Cell key={idx} fill={DIVIDA_COLORS[idx % DIVIDA_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                              formatter={(value: number) => [`${value} registros`, 'Quantidade']}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Valores monetários encontrados */}
+                    {(() => {
+                      const allValores = new Set<string>();
+                      for (const [, section] of Object.entries(dividasData) as [string, any][]) {
+                        (section.valores || []).forEach((v: string) => allValores.add(v));
+                      }
+                      if (allValores.size === 0) return null;
+                      return (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          <span className="text-[10px] text-muted-foreground font-medium">Valores encontrados:</span>
+                          {[...allValores].slice(0, 8).map((v, i) => (
+                            <Badge key={i} variant="outline" className="text-[10px] text-destructive border-destructive/30">{v}</Badge>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
                 <div className="divide-y divide-border">
                   {allDividaItems.slice(0, 5).map((item, i) => (
                     <div key={i} className="px-5 py-3 flex items-start gap-3 hover:bg-muted/30 transition-colors">
