@@ -312,29 +312,29 @@ export default function InternacionalizacaoAnalise() {
   return (
     <div className="min-h-screen bg-background print:bg-white">
       {/* Header */}
-      <header className="border-b bg-card sticky top-0 z-10 print:hidden">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
+      <header className="border-b border-border/60 bg-card sticky top-0 z-10 print:hidden">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
           <Link to="/empresas">
-            <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /></Button>
           </Link>
-          <div className="bg-primary rounded-lg p-2">
-            <Globe className="h-5 w-5 text-primary-foreground" />
+          <div className="bg-accent rounded-lg p-2.5 shadow-sm">
+            <Globe className="h-5 w-5 text-accent-foreground" />
           </div>
           <div className="flex-1">
-            <h1 className="text-lg font-bold text-foreground">Análise de Internacionalização</h1>
-            <p className="text-xs text-muted-foreground">
+            <h1 className="text-lg font-bold text-foreground tracking-tight">Análise de Internacionalização</h1>
+            <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-[0.12em]">
               Elegibilidade para crédito internacional · ACI
             </p>
           </div>
           {step !== 'search' && (
-            <Button variant="outline" size="sm" onClick={resetAnalysis} className="gap-2">
+            <Button variant="outline" size="sm" onClick={resetAnalysis} className="gap-2 text-xs font-semibold border-border/60">
               <RefreshCw className="h-4 w-4" /> Nova Análise
             </Button>
           )}
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
         {/* Step: Search */}
         {step === 'search' && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">
