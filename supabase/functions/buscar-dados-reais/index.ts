@@ -27,11 +27,10 @@ Deno.serve(async (req) => {
     }
 
     const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
-    const firecrawlKey = Deno.env.get('FIRECRAWL_API_KEY');
     const dados: DadoVerificado[] = [];
     const todasFontes: Array<{ nome: string; url: string; tipo: string }> = [];
 
-    // ===== 1. PERPLEXITY: Busca geral com citações =====
+    // ===== PERPLEXITY: Busca geral com citações =====
     if (perplexityKey) {
       const queries = [
         {
@@ -86,14 +85,12 @@ Deno.serve(async (req) => {
           const content = data.choices?.[0]?.message?.content || '';
           const citations = (data.citations || []) as string[];
 
-          // Determinar confiança baseado nas citações
           const fontesCitadas = citations.map((url: string) => {
             let tipo = 'web';
             let nome = '';
             try {
               const u = new URL(url);
               nome = u.hostname.replace('www.', '');
-              // Classificar fonte
               if (nome.includes('gov.br') || nome.includes('cvm.gov') || nome.includes('bcb.gov')) tipo = 'oficial';
               else if (nome.includes('b3.com') || nome.includes('bovespa')) tipo = 'oficial';
               else if (nome.includes('valor.com') || nome.includes('infomoney') || nome.includes('bloomberg') || nome.includes('reuters')) tipo = 'imprensa_financeira';
@@ -107,16 +104,13 @@ Deno.serve(async (req) => {
 
           todasFontes.push(...fontesCitadas);
 
-          // Confiança baseada no tipo de fontes
           const temFonteOficial = fontesCitadas.some(f => f.tipo === 'oficial');
           const temImprensaFinanceira = fontesCitadas.some(f => f.tipo === 'imprensa_financeira');
           const confianca: DadoVerificado['confianca'] = temFonteOficial ? 'alta' : temImprensaFinanceira ? 'media' : fontesCitadas.length > 0 ? 'baixa' : 'estimativa';
 
-          // Extrair valores monetários
           const valores = content.match(/R\$\s?[\d.,]+(?:\s?(?:bilh[ãõ]es?|milh[ãõ]es?|mil|bi|mi|B|M|K))?/gi) || [];
           const valorPrincipal = valores[0] || 'Não encontrado';
 
-          // Detectar se dados foram realmente encontrados
           const naoEncontrado = content.toLowerCase().includes('não foram encontrad') || 
             content.toLowerCase().includes('não há dados') ||
             content.toLowerCase().includes('não foi possível') ||
@@ -139,67 +133,6 @@ Deno.serve(async (req) => {
       for (const result of perplexityResults) {
         if (result.status === 'fulfilled') {
           dados.push(result.value);
-        }
-      }
-    }
-
-    // ===== 2. FIRECRAWL: Scrape de fontes específicas =====
-    if (firecrawlKey) {
-      const cnpjClean = cnpj.replace(/\D/g, '');
-      const scrapeSources = [
-        {
-          url: `https://casfrancisco.cnpja.com/office/${cnpjClean}`,
-          categoria: 'cadastro_oficial',
-          titulo: 'Dados Cadastrais',
-        },
-        {
-          url: `https://www.reclameaqui.com.br/busca/?q=${encodeURIComponent(razao_social)}`,
-          categoria: 'reputacao_consumidor',
-          titulo: 'Reputação do Consumidor',
-        },
-      ];
-
-      const firecrawlResults = await Promise.allSettled(
-        scrapeSources.map(async (source) => {
-          const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${firecrawlKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              url: source.url,
-              formats: ['markdown'],
-              onlyMainContent: true,
-              waitFor: 3000,
-            }),
-          });
-
-          const data = await response.json();
-          if (!response.ok) return null;
-
-          const markdown = data?.data?.markdown || data?.markdown || '';
-          if (!markdown || markdown.length < 50) return null;
-
-          // Extrair informações relevantes
-          const valores = markdown.match(/R\$\s?[\d.,]+(?:\s?(?:bilh[ãõ]es?|milh[ãõ]es?|mil))?/gi) || [];
-          const rating = markdown.match(/nota\s*:?\s*([\d.,]+)/i)?.[1] || markdown.match(/score\s*:?\s*([\d.,]+)/i)?.[1];
-
-          return {
-            categoria: source.categoria,
-            titulo: source.titulo,
-            valor: rating ? `Nota: ${rating}` : valores[0] || 'Dados encontrados',
-            confianca: 'media' as const,
-            fontes: [{ nome: new URL(source.url).hostname.replace('www.', ''), url: source.url, tipo: 'scraping' }],
-            detalhes: markdown.substring(0, 400),
-          } as DadoVerificado;
-        })
-      );
-
-      for (const result of firecrawlResults) {
-        if (result.status === 'fulfilled' && result.value) {
-          dados.push(result.value);
-          todasFontes.push(...result.value.fontes);
         }
       }
     }
