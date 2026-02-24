@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign, Gavel, Ban, Receipt, BarChart3, Info, Home, Car, Briefcase, Shield, CheckCircle2, XCircle, HelpCircle, Zap, Tag, Database } from "lucide-react";
+import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign, Gavel, Ban, Receipt, BarChart3, Info, Home, Car, Briefcase, Shield, CheckCircle2, XCircle, HelpCircle, Zap, Tag, Database, ChevronRight } from "lucide-react";
 import { SourceIndicator, SourceBadgeRow, type ConfiancaNivel, type Fonte } from "@/components/SourceIndicator";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
@@ -86,6 +86,58 @@ const CNAES_INTERNACIONAIS = [
 ];
 
 
+// Renders text with markdown links [text](url) as clickable <a> tags
+function RenderLinkedItem({ text, emoji, variant }: { text: string; emoji: string; variant: 'accent' | 'success' | 'destructive' | 'muted' }) {
+  const variantStyles = {
+    accent: 'border-accent/20 bg-accent/5',
+    success: 'border-[hsl(153,100%,39%)]/20 bg-[hsl(153,100%,39%)]/5',
+    destructive: 'border-destructive/30 bg-destructive/5 text-destructive',
+    muted: 'border-border bg-muted/30',
+  };
+
+  // Parse markdown links [text](url)
+  const parts = text.split(/(\[[^\]]+\]\([^)]+\))/g);
+  
+  return (
+    <div className={`text-xs p-2.5 rounded-lg border ${variantStyles[variant]} leading-relaxed`}>
+      {emoji}{' '}
+      {parts.map((part, i) => {
+        const linkMatch = part.match(/\[([^\]]+)\]\(([^)]+)\)/);
+        if (linkMatch) {
+          return (
+            <a
+              key={i}
+              href={linkMatch[2]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent underline underline-offset-2 hover:text-accent/80 transition-colors font-medium"
+            >
+              {linkMatch[1]} <ExternalLink className="inline h-2.5 w-2.5" />
+            </a>
+          );
+        }
+        // Also handle raw URLs
+        const urlParts = part.split(/(https?:\/\/[^\s)]+)/g);
+        return urlParts.map((urlPart, j) => {
+          if (urlPart.match(/^https?:\/\//)) {
+            return (
+              <a
+                key={`${i}-${j}`}
+                href={urlPart}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-2 hover:text-accent/80 transition-colors font-medium break-all"
+              >
+                {urlPart.length > 60 ? urlPart.substring(0, 60) + '...' : urlPart}
+              </a>
+            );
+          }
+          return <span key={`${i}-${j}`}>{urlPart}</span>;
+        });
+      })}
+    </div>
+  );
+}
 
 interface CreditoInternacionalScore {
   score: number; // 0-100
@@ -2471,57 +2523,61 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
                   </div>
                 )}
                 {totalContratos > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <FileText className="h-3 w-3 text-indigo-600" /> Contratos e Licitações ({totalContratos})
-                    </p>
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  <details className="group">
+                    <summary className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 cursor-pointer select-none hover:text-foreground transition-colors list-none">
+                      <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
+                      <FileText className="h-3 w-3 text-accent" /> Contratos e Licitações ({totalContratos})
+                    </summary>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 mt-2 ml-4">
                       {resumo.contratos.map((item: string, i: number) => (
-                        <p key={i} className="text-xs text-foreground p-2.5 rounded-lg border bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-200/50 dark:border-indigo-800/30">📋 {item}</p>
+                        <RenderLinkedItem key={i} text={item} emoji="📋" variant="accent" />
                       ))}
                     </div>
-                  </div>
+                  </details>
                 )}
                 {totalValores > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <DollarSign className="h-3 w-3 text-emerald-600" /> Valores Recebidos ({totalValores})
-                    </p>
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  <details className="group">
+                    <summary className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 cursor-pointer select-none hover:text-foreground transition-colors list-none">
+                      <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
+                      <DollarSign className="h-3 w-3 text-[hsl(153,100%,39%)]" /> Valores Recebidos ({totalValores})
+                    </summary>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 mt-2 ml-4">
                       {resumo.valoresRecebidos.map((item: string, i: number) => (
-                        <p key={i} className="text-xs text-foreground p-2.5 rounded-lg border bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/30">💰 {item}</p>
+                        <RenderLinkedItem key={i} text={item} emoji="💰" variant="success" />
                       ))}
                     </div>
-                  </div>
+                  </details>
                 )}
                 {totalSancoes > 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold uppercase tracking-wider flex items-center gap-1 text-destructive">
+                  <details className="group" open>
+                    <summary className="text-xs font-bold uppercase tracking-wider flex items-center gap-1 text-destructive cursor-pointer select-none hover:text-destructive/80 transition-colors list-none">
+                      <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
                       <AlertTriangle className="h-3 w-3" /> ⚠️ Sanções e Penalidades ({totalSancoes})
-                    </p>
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    </summary>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 mt-2 ml-4">
                       {resumo.sancoes.map((item: string, i: number) => (
-                        <p key={i} className="text-xs text-destructive p-2.5 rounded-lg border border-destructive/30 bg-destructive/5">🚨 {item}</p>
+                        <RenderLinkedItem key={i} text={item} emoji="🚨" variant="destructive" />
                       ))}
                     </div>
-                  </div>
+                  </details>
                 ) : (
-                  <div className="flex items-center gap-2 text-sm text-green-600 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900">
+                  <div className="flex items-center gap-2 text-sm text-[hsl(153,100%,39%)] p-3 rounded-lg bg-[hsl(153,100%,39%)]/10 border border-[hsl(153,100%,39%)]/20">
                     <ShieldCheck className="h-5 w-5" />
                     <span className="font-medium">Nenhuma sanção ou penalidade encontrada — empresa regular</span>
                   </div>
                 )}
                 {totalOutras > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <Info className="h-3 w-3 text-purple-600" /> Outras Informações ({totalOutras})
-                    </p>
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  <details className="group">
+                    <summary className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 cursor-pointer select-none hover:text-foreground transition-colors list-none">
+                      <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
+                      <Info className="h-3 w-3 text-secondary" /> Outras Informações ({totalOutras})
+                    </summary>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 mt-2 ml-4">
                       {resumo.outrasInfos.map((item: string, i: number) => (
-                        <p key={i} className="text-xs text-foreground p-2.5 rounded-lg border bg-muted/30">{item}</p>
+                        <RenderLinkedItem key={i} text={item} emoji="ℹ️" variant="muted" />
                       ))}
                     </div>
-                  </div>
+                  </details>
                 )}
                 <div className="flex items-center justify-between pt-2 border-t">
                   <a href={portalData.url} target="_blank" rel="noopener noreferrer">
