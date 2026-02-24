@@ -850,9 +850,9 @@ export default function Empresas() {
                             {formatCompact(empresa.capital_social)}
                           </p>
                           <div className="text-right">
-                            <p className="text-[10px] text-muted-foreground">Fat. mensal est.</p>
+                            <p className="text-[10px] text-muted-foreground">Porte</p>
                             <p className="text-xs font-semibold text-accent-foreground">
-                              {formatCompact(estimarFaturamentoMensal(empresa.capital_social, empresa.cnae_fiscal, empresa.porte))}/mês
+                              {empresa.porte || '—'}
                             </p>
                           </div>
                         </div>
@@ -1064,9 +1064,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
   const [dividasData, setDividasData] = useState<any>(null);
   const [dividasLoading, setDividasLoading] = useState(false);
   const [dividasError, setDividasError] = useState<string | null>(null);
-  const [faturamentoData, setFaturamentoData] = useState<any>(null);
-  const [faturamentoLoading, setFaturamentoLoading] = useState(false);
-  const [faturamentoError, setFaturamentoError] = useState<string | null>(null);
+  // faturamento removed — using capital social directly
   const [garantiasData, setGarantiasData] = useState<any>(null);
   const [garantiasLoading, setGarantiasLoading] = useState(false);
   const [garantiasError, setGarantiasError] = useState<string | null>(null);
@@ -1114,29 +1112,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
     }
   };
 
-  const buscarFaturamento = async () => {
-    setFaturamentoLoading(true);
-    setFaturamentoError(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('buscar-faturamento', {
-        body: {
-          cnpj: empresa.cnpj,
-          razao_social: empresa.razao_social,
-          capital_social: empresa.capital_social,
-          cnae_fiscal: empresa.cnae_fiscal,
-          porte: empresa.porte,
-          data_inicio_atividade: empresa.data_inicio_atividade,
-        },
-      });
-      if (error) throw new Error(error.message);
-      if (!data?.success) throw new Error(data?.error || 'Erro desconhecido');
-      setFaturamentoData(data);
-    } catch (err: any) {
-      setFaturamentoError(err.message);
-    } finally {
-      setFaturamentoLoading(false);
-    }
-  };
+  // buscarFaturamento removed — using capital social directly
 
   const buscarGarantias = async () => {
     setGarantiasLoading(true);
@@ -1180,7 +1156,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
   // Auto-trigger ALL searches on mount
   useEffect(() => {
     verificarCreditoInternacional();
-    buscarFaturamento();
+    // buscarFaturamento removed
     buscarDividas();
     buscarPortalTransparencia();
     buscarGarantias();
@@ -1215,7 +1191,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
   const searches = [
     { label: 'Dados Reais', loading: dadosReaisLoading, done: !!dadosReaisData, error: !!dadosReaisError, icon: '🔍' },
     { label: 'Crédito Internacional', loading: creditoIntLoading, done: !!creditoIntData, error: !!creditoIntError, icon: '🌐' },
-    { label: 'Faturamento', loading: faturamentoLoading, done: !!faturamentoData, error: !!faturamentoError, icon: '📊' },
+    { label: 'Capital Social', loading: false, done: true, error: false, icon: '💰' },
     { label: 'Dívidas', loading: dividasLoading, done: !!dividasData, error: !!dividasError, icon: '💰' },
     { label: 'Transparência', loading: portalLoading, done: !!portalData, error: !!portalError, icon: '⚖️' },
     { label: 'Garantias', loading: garantiasLoading, done: !!garantiasData, error: !!garantiasError, icon: '🛡️' },
@@ -1657,11 +1633,11 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
         const pontosAtencaoArr: string[] = [];
         const riscos: string[] = [];
 
-        // Faturamento
-        const fatAnual = faturamentoData?.estimativa?.anual || 0;
-        if (fatAnual >= 1e9) pontosFortesArr.push(`Faturamento robusto de ${fatAnual >= 1e9 ? `R$ ${(fatAnual/1e9).toFixed(1)}B` : `R$ ${(fatAnual/1e6).toFixed(0)}M`} ao ano, indicando solidez operacional`);
-        else if (fatAnual >= 100e6) pontosFortesArr.push(`Faturamento de ${`R$ ${(fatAnual/1e6).toFixed(0)}M`}/ano posiciona bem para operações de crédito`);
-        else if (fatAnual > 0 && fatAnual < 10e6) pontosAtencaoArr.push(`Faturamento abaixo de R$ 10M/ano pode limitar acesso a linhas de crédito maiores`);
+        // Capital Social
+        const capSocial = empresa.capital_social || 0;
+        if (capSocial >= 100e6) pontosFortesArr.push(`Capital social robusto de R$ ${(capSocial/1e6).toFixed(0)}M, indicando solidez patrimonial`);
+        else if (capSocial >= 10e6) pontosFortesArr.push(`Capital social de R$ ${(capSocial/1e6).toFixed(1)}M posiciona bem para operações de crédito`);
+        else if (capSocial > 0 && capSocial < 100e3) pontosAtencaoArr.push(`Capital social abaixo de R$ 100K pode limitar acesso a linhas de crédito maiores`);
 
         // Dívidas
         const totalDividas = dividasData ? (Object.values(dividasData) as any[]).reduce((a: number, s: any) => a + (s.encontrados || 0), 0) : 0;
@@ -1785,7 +1761,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-2 border-t border-border/30">
                 {[
                   { icon: '🌐', label: 'Créd. Internac.', value: creditoIntData?.status === 'confirmado' ? 'Confirmado' : creditoIntData?.status === 'provavel' ? 'Provável' : creditoIntData?.status === 'possivel' ? 'Possível' : 'N/A', tab: 'credito' },
-                  { icon: '📊', label: 'Fat. Anual', value: fatAnual >= 1e9 ? `R$ ${(fatAnual/1e9).toFixed(1)}B` : fatAnual >= 1e6 ? `R$ ${(fatAnual/1e6).toFixed(0)}M` : fatAnual > 0 ? `R$ ${(fatAnual/1e3).toFixed(0)}K` : 'N/A', tab: 'financeiro' },
+                  { icon: '💰', label: 'Capital Social', value: capSocial >= 1e9 ? `R$ ${(capSocial/1e9).toFixed(1)}B` : capSocial >= 1e6 ? `R$ ${(capSocial/1e6).toFixed(0)}M` : capSocial > 0 ? `R$ ${(capSocial/1e3).toFixed(0)}K` : 'N/A', tab: 'financeiro' },
                   { icon: '💰', label: 'Dívidas', value: totalDividas === 0 ? 'Nenhuma' : `${totalDividas} reg.`, tab: 'compliance' },
                   { icon: '⚖️', label: 'Sanções', value: totalSancoes === 0 ? 'Regular' : `${totalSancoes} sanções`, tab: 'compliance' },
                   { icon: '🛡️', label: 'Garantias', value: garantiasData?.estimativa?.capacidadeGarantia ? garantiasData.estimativa.capacidadeGarantia.charAt(0).toUpperCase() + garantiasData.estimativa.capacidadeGarantia.slice(1) : 'N/A', tab: 'garantias' },
@@ -2183,198 +2159,112 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
 
         {/* TAB: Financeiro */}
         <TabsContent value="financeiro" className="space-y-4">
-      {/* Faturamento Estimado */}
+      {/* Capital Social */}
       <Card className="border-2 border-primary/10 overflow-hidden">
         <div className="px-4 py-2 bg-primary text-primary-foreground text-sm font-bold flex items-center gap-2">
-          <BarChart3 className="h-4 w-4" />
-          📊 FATURAMENTO & PROJEÇÃO FINANCEIRA
+          <DollarSign className="h-4 w-4" />
+          💰 CAPITAL SOCIAL & PERFIL FINANCEIRO
           <span className="ml-auto text-xs font-normal opacity-80">
-            Fontes: Receita Federal · Perplexity AI · AbstractAPI
+            Fonte: Receita Federal
           </span>
         </div>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            Faturamento Estimado
+            <DollarSign className="h-5 w-5 text-primary" />
+            Capital Social
           </CardTitle>
-          <CardDescription>Estimativa baseada em Capital Social, CNAE, Porte e Maturidade · Dados cruzados com fontes oficiais</CardDescription>
+          <CardDescription>Dados oficiais da Receita Federal · CNPJ {empresa.cnpj}</CardDescription>
         </CardHeader>
         <CardContent>
-          {faturamentoLoading && (
-            <div className="flex flex-col items-center gap-3 py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Calculando estimativa e cruzando dados reais...</p>
+          <div className="space-y-6 animate-fade-in">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 p-4 text-center">
+                <p className="text-2xl font-black text-primary">
+                  {empresa.capital_social >= 1e9 ? `R$ ${(empresa.capital_social/1e9).toFixed(1)}B` :
+                   empresa.capital_social >= 1e6 ? `R$ ${(empresa.capital_social/1e6).toFixed(1)}M` :
+                   empresa.capital_social >= 1e3 ? `R$ ${(empresa.capital_social/1e3).toFixed(0)}K` :
+                   `R$ ${empresa.capital_social.toFixed(0)}`}
+                </p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Capital Social</p>
+              </div>
+              <div className="rounded-xl bg-muted/50 border p-4 text-center">
+                <p className="text-lg font-bold text-foreground">{empresa.porte || '—'}</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Porte</p>
+              </div>
+              <div className="rounded-xl bg-muted/50 border p-4 text-center">
+                <p className="text-lg font-bold text-foreground">{empresa.cnae_fiscal_descricao?.split(' ').slice(0, 3).join(' ') || '—'}</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Setor (CNAE)</p>
+              </div>
+              <div className="rounded-xl bg-muted/50 border p-4 text-center">
+                <p className="text-lg font-bold text-foreground">
+                  {empresa.data_inicio_atividade ? `${new Date().getFullYear() - new Date(empresa.data_inicio_atividade).getFullYear()} anos` : '—'}
+                </p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Tempo de Mercado</p>
+              </div>
             </div>
-          )}
 
-          {faturamentoError && (
-            <div className="space-y-2">
-              <p className="text-sm text-destructive">Erro: {faturamentoError}</p>
-              <Button variant="outline" size="sm" onClick={buscarFaturamento}>Tentar novamente</Button>
-            </div>
-          )}
-
-          {faturamentoData && (() => {
-            const est = faturamentoData.estimativa;
-            const mensal = est.mensal || [];
-            const maxVal = Math.max(...mensal.map((m: any) => m.valor));
-            const fmtVal = (v: number) => v >= 1_000_000_000 ? `R$ ${(v / 1_000_000_000).toFixed(1)}B` : v >= 1_000_000 ? `R$ ${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `R$ ${(v / 1_000).toFixed(0)}K` : `R$ ${v}`;
-
-            // Current month
-            const mesAtualIndex = new Date().getMonth(); // 0-11
-            const mesAtualNome = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'][mesAtualIndex];
-            const mesAtualValor = mensal[mesAtualIndex]?.valor || Math.round(est.anual / 12);
-
-            return (
-              <div className="space-y-6 animate-fade-in">
-                {/* Summary Cards - 5 columns with current month highlight */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                  <div className="rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 p-3 text-center">
-                    <p className="text-2xl font-black text-primary">{fmtVal(est.anual)}</p>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Faturamento Anual</p>
-                  </div>
-                  <div className="rounded-xl bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 border border-emerald-500/30 p-3 text-center relative">
-                    <div className="absolute -top-1.5 left-1/2 -translate-x-1/2">
-                      <Badge className="bg-emerald-600 text-white text-[9px] px-1.5 py-0">MÊS ATUAL</Badge>
-                    </div>
-                    <p className="text-2xl font-black text-emerald-600 mt-1">{fmtVal(mesAtualValor)}</p>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">{mesAtualNome} · Projeção</p>
-                  </div>
-                  <div className="rounded-xl bg-muted/50 border p-3 text-center">
-                    <p className="text-2xl font-black text-foreground">{fmtVal(Math.round(est.anual / 12))}</p>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Média Mensal</p>
-                  </div>
-                  <div className="rounded-xl bg-muted/50 border p-3 text-center">
-                    <p className="text-lg font-bold text-foreground">{est.setor}</p>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Setor</p>
-                  </div>
-                  <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-3 text-center">
-                    <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 text-xs">
-                      ✅ Confiança Alta
-                    </Badge>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-2">Precisão</p>
-                  </div>
-                </div>
-
-                {/* Monthly Chart with current month highlighted */}
+            {/* Capital Social vs Sócios chart */}
+            {empresa.qsa && empresa.qsa.length > 0 && (() => {
+              const sociosData = empresa.qsa
+                .filter(s => s.capital_social_socio > 0)
+                .sort((a, b) => b.capital_social_socio - a.capital_social_socio)
+                .slice(0, 8)
+                .map(s => ({
+                  name: s.nome_socio.split(' ').slice(0, 2).join(' '),
+                  valor: s.capital_social_socio,
+                }));
+              if (sociosData.length === 0) return null;
+              const fmtVal = (v: number) => v >= 1e6 ? `R$ ${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `R$ ${(v/1e3).toFixed(0)}K` : `R$ ${v}`;
+              const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(210, 70%, 55%)', 'hsl(153, 70%, 40%)', 'hsl(280, 60%, 50%)', 'hsl(38, 80%, 50%)', 'hsl(0, 70%, 55%)', 'hsl(180, 50%, 45%)'];
+              return (
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1">
-                    <TrendingUp className="h-3 w-3" />
-                    Projeção Mensal (com sazonalidade) · {mesAtualNome} é o mês atual
+                    <Users className="h-3 w-3" />
+                    Participação Societária (Capital por Sócio)
                   </p>
-                  <div className="h-56 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={mensal} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                        <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-                        <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: number) => fmtVal(v)} width={65} />
-                        <Tooltip
-                          formatter={(value: number) => [fmtVal(value), 'Faturamento']}
-                          contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
-                        />
-                        <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
-                          {mensal.map((entry: any, i: number) => (
-                            <Cell
-                              key={i}
-                              fill={i === mesAtualIndex ? 'hsl(145, 65%, 40%)' : entry.valor >= maxVal * 0.9 ? 'hsl(var(--primary))' : entry.valor >= maxVal * 0.7 ? 'hsl(var(--primary) / 0.7)' : 'hsl(var(--primary) / 0.4)'}
-                              stroke={i === mesAtualIndex ? 'hsl(145, 65%, 30%)' : 'none'}
-                              strokeWidth={i === mesAtualIndex ? 2 : 0}
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* Data Sources */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="rounded-lg border bg-background p-3 space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs">🏛️</span>
-                      <span className="text-xs font-bold">Receita Federal</span>
-                      <Badge variant="outline" className="text-[9px] ml-auto border-emerald-300 text-emerald-600">Oficial</Badge>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={sociosData} layout="vertical" margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                          <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v: number) => fmtVal(v)} />
+                          <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={100} />
+                          <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} formatter={(value: number) => [fmtVal(value), 'Capital']} />
+                          <Bar dataKey="valor" radius={[0, 6, 6, 0]} maxBarSize={24}>
+                            {sociosData.map((_, idx) => (
+                              <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
-                    <p className="text-[10px] text-muted-foreground">Capital Social, CNAE, Porte, Data de Abertura</p>
-                  </div>
-                  <div className="rounded-lg border bg-background p-3 space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs">🤖</span>
-                      <span className="text-xs font-bold">Perplexity AI</span>
-                      <Badge variant="outline" className="text-[9px] ml-auto border-blue-300 text-blue-600">Busca IA</Badge>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">Faturamento real, receita bruta, dados públicos</p>
-                  </div>
-                  <div className="rounded-lg border bg-background p-3 space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs">📊</span>
-                      <span className="text-xs font-bold">Modelo Estimativo</span>
-                      <Badge variant="outline" className="text-[9px] ml-auto border-amber-300 text-amber-600">Cálculo</Badge>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">Capital × CNAE × Porte × Maturidade</p>
-                  </div>
-                </div>
-
-                {/* Methodology */}
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border text-xs text-muted-foreground">
-                  <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold mb-1">Metodologia da Estimativa</p>
-                    <p>{est.metodologia}</p>
-                  </div>
-                </div>
-
-                {/* Web Data - without "fonte da web" label */}
-                {faturamentoData.dadosWeb && faturamentoData.dadosWeb.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <Database className="h-3 w-3" />
-                      Dados Encontrados ({faturamentoData.dadosWeb.length})
-                    </p>
-                    <div className="space-y-1.5">
-                      {faturamentoData.dadosWeb.map((item: any, i: number) => (
-                        <a
-                          key={i}
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block text-xs p-3 rounded-lg border bg-background hover:bg-accent/50 transition-all hover:shadow-sm group"
-                        >
-                          <p className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                            {item.titulo}
-                          </p>
-                          {item.descricao && (
-                            <p className="text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>
-                          )}
-                          {item.valoresEncontrados && item.valoresEncontrados.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {item.valoresEncontrados.map((v: string, vi: number) => (
-                                <Badge key={vi} variant="outline" className="text-xs text-primary border-primary/30">
-                                  💰 {v}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
-                            <ExternalLink className="h-2.5 w-2.5" />
-                            {item.fonte}
-                          </div>
-                        </a>
-                      ))}
+                    <div className="h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={sociosData} dataKey="valor" nameKey="name" cx="50%" cy="50%" outerRadius={70} innerRadius={35} strokeWidth={2} stroke="hsl(var(--card))" label={({ name, percent }) => `${name.split(' ')[0]} ${(percent * 100).toFixed(0)}%`}>
+                            {sociosData.map((_, idx) => (
+                              <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} formatter={(value: number) => [fmtVal(value), 'Capital']} />
+                        </PieChart>
+                      </ResponsiveContainer>
                     </div>
                   </div>
-                )}
-
-                {/* Refresh */}
-                <div className="flex justify-center">
-                  <Button variant="ghost" size="sm" onClick={buscarFaturamento} className="gap-2 text-xs text-muted-foreground">
-                    <Search className="h-3 w-3" />
-                    Recalcular
-                  </Button>
                 </div>
+              );
+            })()}
+
+            {/* Source */}
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border text-xs text-muted-foreground">
+              <ShieldCheck className="h-4 w-4 flex-shrink-0 mt-0.5 text-[hsl(153,100%,39%)]" />
+              <div>
+                <p className="font-semibold mb-1">Dados Oficiais — Receita Federal do Brasil</p>
+                <p>Capital social registrado no CNPJ. Valor atualizado conforme última alteração contratual informada à Receita Federal.</p>
               </div>
-            );
-          })()}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
