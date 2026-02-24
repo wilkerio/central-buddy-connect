@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign, Gavel, Ban, Receipt, BarChart3, Info, Home, Car, Briefcase, Shield, CheckCircle2, XCircle, HelpCircle, Zap, Tag } from "lucide-react";
+import { Building2, Landmark, ArrowLeft, Users, Search, X, Phone, Mail, MessageCircle, ExternalLink, Loader2, Pause, Play, Globe, TrendingUp, ShieldCheck, AlertTriangle, FileText, Scale, DollarSign, Gavel, Ban, Receipt, BarChart3, Info, Home, Car, Briefcase, Shield, CheckCircle2, XCircle, HelpCircle, Zap, Tag, Database } from "lucide-react";
+import { SourceIndicator, SourceBadgeRow, type ConfiancaNivel, type Fonte } from "@/components/SourceIndicator";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from "recharts";
@@ -1022,6 +1023,9 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
   const [endividamentoData, setEndividamentoData] = useState<any>(null);
   const [endividamentoLoading, setEndividamentoLoading] = useState(false);
   const [endividamentoError, setEndividamentoError] = useState<string | null>(null);
+  const [dadosReaisData, setDadosReaisData] = useState<any>(null);
+  const [dadosReaisLoading, setDadosReaisLoading] = useState(false);
+  const [dadosReaisError, setDadosReaisError] = useState<string | null>(null);
 
   const buscarPortalTransparencia = async () => {
     setPortalLoading(true);
@@ -1128,10 +1132,35 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
     buscarPortalTransparencia();
     buscarGarantias();
     buscarEndividamentoBancario();
+    buscarDadosReais();
   }, []);
+
+  const buscarDadosReais = async () => {
+    setDadosReaisLoading(true);
+    setDadosReaisError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('buscar-dados-reais', {
+        body: {
+          cnpj: empresa.cnpj,
+          razao_social: empresa.razao_social,
+          capital_social: empresa.capital_social,
+          porte: empresa.porte,
+          cnae_fiscal: empresa.cnae_fiscal,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || 'Erro desconhecido');
+      setDadosReaisData(data);
+    } catch (err: any) {
+      setDadosReaisError(err.message);
+    } finally {
+      setDadosReaisLoading(false);
+    }
+  };
 
   // Progress tracking
   const searches = [
+    { label: 'Dados Reais', loading: dadosReaisLoading, done: !!dadosReaisData, error: !!dadosReaisError, icon: '🔍' },
     { label: 'Crédito Internacional', loading: creditoIntLoading, done: !!creditoIntData, error: !!creditoIntError, icon: '🌐' },
     { label: 'Faturamento', loading: faturamentoLoading, done: !!faturamentoData, error: !!faturamentoError, icon: '📊' },
     { label: 'Dívidas', loading: dividasLoading, done: !!dividasData, error: !!dividasError, icon: '💰' },
@@ -1317,8 +1346,12 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
       )}
 
       {/* TABBED CONTENT */}
-      <Tabs defaultValue="credito" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+      <Tabs defaultValue="dados-reais" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="dados-reais" className="text-xs gap-1">
+            <Database className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Dados Reais</span>
+          </TabsTrigger>
           <TabsTrigger value="credito" className="text-xs gap-1">
             <Globe className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Crédito</span>
@@ -1340,6 +1373,157 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
             <span className="hidden sm:inline">Contatos</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* TAB: Dados Reais */}
+        <TabsContent value="dados-reais" className="space-y-4">
+          <Card className="border-2 border-primary/20 overflow-hidden">
+            {dadosReaisData && (
+              <div className={`px-4 py-2 text-sm font-bold flex items-center gap-2 ${
+                dadosReaisData.resumo?.confianca_geral === 'alta' ? 'bg-emerald-600 text-white' :
+                dadosReaisData.resumo?.confianca_geral === 'media' ? 'bg-blue-600 text-white' :
+                dadosReaisData.resumo?.confianca_geral === 'baixa' ? 'bg-amber-500 text-amber-950' :
+                'bg-muted text-muted-foreground'
+              }`}>
+                <Database className="h-4 w-4" />
+                {dadosReaisData.resumo?.confianca_geral === 'alta' && '✅ DADOS VERIFICADOS — FONTES OFICIAIS'}
+                {dadosReaisData.resumo?.confianca_geral === 'media' && '📋 DADOS VERIFICADOS — FONTES CONFIÁVEIS'}
+                {dadosReaisData.resumo?.confianca_geral === 'baixa' && '⚠️ DADOS PARCIAIS — VERIFICAÇÃO RECOMENDADA'}
+                {dadosReaisData.resumo?.confianca_geral === 'estimativa' && '📊 DADOS ESTIMADOS — SEM FONTES PÚBLICAS'}
+                <span className="ml-auto text-xs font-normal opacity-80">
+                  {dadosReaisData.resumo?.total_fontes || 0} fontes · {dadosReaisData.resumo?.fontes_oficiais || 0} oficiais
+                </span>
+              </div>
+            )}
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Database className="h-5 w-5 text-primary" />
+                Dados Reais Verificados
+              </CardTitle>
+              <CardDescription>Dados buscados via Perplexity AI + Firecrawl com fontes rastreáveis. Clique nas fontes para verificar.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {dadosReaisLoading && (
+                <div className="flex flex-col items-center gap-3 py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Buscando dados reais com Perplexity + Firecrawl...</p>
+                  <p className="text-xs text-muted-foreground">Cruzando fontes oficiais, imprensa e bases públicas...</p>
+                </div>
+              )}
+
+              {dadosReaisError && (
+                <div className="space-y-2">
+                  <p className="text-sm text-destructive">Erro: {dadosReaisError}</p>
+                  <Button variant="outline" size="sm" onClick={buscarDadosReais}>Tentar novamente</Button>
+                </div>
+              )}
+
+              {dadosReaisData && (
+                <div className="space-y-4 animate-fade-in">
+                  {/* Summary stats */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="rounded-xl border p-3 text-center bg-background">
+                      <p className="text-3xl font-black text-foreground">{dadosReaisData.resumo?.total_dados || 0}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Categorias</p>
+                    </div>
+                    <div className="rounded-xl border p-3 text-center bg-background">
+                      <p className="text-3xl font-black text-foreground">{dadosReaisData.resumo?.total_fontes || 0}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Fontes</p>
+                    </div>
+                    <div className="rounded-xl border p-3 text-center bg-background">
+                      <SourceIndicator
+                        confianca={dadosReaisData.resumo?.confianca_geral || 'estimativa'}
+                        fontes={[]}
+                        compact
+                      />
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-2">Confiança</p>
+                    </div>
+                  </div>
+
+                  {/* Data cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {(dadosReaisData.dados || []).map((dado: any, i: number) => (
+                      <Card key={i} className="overflow-hidden">
+                        <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-between">
+                          <span className="text-xs font-bold">{dado.titulo}</span>
+                          <SourceIndicator confianca={dado.confianca} fontes={dado.fontes || []} compact />
+                        </div>
+                        <CardContent className="p-4 space-y-3">
+                          <p className="text-lg font-black text-foreground">{dado.valor}</p>
+                          {dado.detalhes && (
+                            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-4">{dado.detalhes}</p>
+                          )}
+                          {dado.fontes && dado.fontes.length > 0 && (
+                            <div className="space-y-1 pt-2 border-t">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Fontes</p>
+                              {dado.fontes.map((f: Fonte, fi: number) => (
+                                <a
+                                  key={fi}
+                                  href={f.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 text-xs p-1.5 rounded border bg-background hover:bg-accent/50 transition-colors group"
+                                >
+                                  <ExternalLink className="h-3 w-3 text-muted-foreground group-hover:text-primary flex-shrink-0" />
+                                  <span className="font-medium text-foreground group-hover:text-primary truncate">{f.nome}</span>
+                                  <Badge variant="outline" className="text-[9px] ml-auto shrink-0">
+                                    {f.tipo === 'oficial' ? '🏛️ Oficial' :
+                                     f.tipo === 'imprensa_financeira' ? '📰 Imprensa' :
+                                     f.tipo === 'juridico' ? '⚖️ Jurídico' :
+                                     f.tipo === 'scraping' ? '🔍 Extraído' : '🌐 Web'}
+                                  </Badge>
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* All sources */}
+                  {dadosReaisData.fontes && dadosReaisData.fontes.length > 0 && (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1.5">
+                          <ExternalLink className="h-3 w-3" />
+                          Todas as Fontes ({dadosReaisData.fontes.length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-1">
+                        {dadosReaisData.fontes.map((f: Fonte, i: number) => (
+                          <a
+                            key={i}
+                            href={f.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-xs p-2 rounded-lg border bg-background hover:bg-accent/50 transition-colors group"
+                          >
+                            <ExternalLink className="h-3 w-3 text-muted-foreground group-hover:text-primary" />
+                            <span className="font-medium text-primary hover:underline truncate flex-1">{f.nome}</span>
+                            <Badge variant="outline" className="text-[9px] shrink-0">
+                              {f.tipo === 'oficial' ? '🏛️ Oficial' :
+                               f.tipo === 'imprensa_financeira' ? '📰 Imprensa' :
+                               f.tipo === 'juridico' ? '⚖️ Jurídico' :
+                               f.tipo === 'consumidor' ? '👥 Consumidor' :
+                               f.tipo === 'scraping' ? '🔍 Extraído' : '🌐 Web'}
+                            </Badge>
+                          </a>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  <div className="flex justify-center">
+                    <Button variant="ghost" size="sm" onClick={buscarDadosReais} className="gap-2 text-xs text-muted-foreground">
+                      <Search className="h-3 w-3" />
+                      Buscar novamente
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* TAB: Crédito Internacional */}
         <TabsContent value="credito" className="space-y-4">
