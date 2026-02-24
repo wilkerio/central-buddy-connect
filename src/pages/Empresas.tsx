@@ -1249,6 +1249,151 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
         </CardContent>
       </Card>
 
+      {/* PRÉ-RESUMO */}
+      <Card className="border-2 border-primary/20 bg-gradient-to-br from-card via-accent/5 to-primary/5 overflow-hidden">
+        <div className="px-4 py-2.5 bg-primary/10 border-b flex items-center gap-2">
+          <FileText className="h-4 w-4 text-primary" />
+          <span className="text-sm font-bold text-foreground">Pré-Resumo da Empresa</span>
+          {!allDone && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary ml-auto" />}
+          {allDone && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 ml-auto" />}
+        </div>
+        <CardContent className="pt-4 pb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Situação Geral */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">📋 Situação Geral</p>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Status Cadastral</span>
+                  <Badge variant={empresa.situacao_cadastral === "ATIVA" ? "default" : "destructive"} className="text-[10px]">
+                    {empresa.situacao_cadastral}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Capital Social</span>
+                  <span className="font-bold text-foreground">{formatCompact(empresa.capital_social)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Porte</span>
+                  <span className="font-medium text-foreground">{empresa.porte || 'N/A'}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Setor</span>
+                  <span className="font-medium text-foreground truncate max-w-[180px]">{empresa.cnae_fiscal_descricao || 'N/A'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Financeiro */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">💰 Financeiro</p>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Faturamento Anual</span>
+                  {faturamentoLoading ? <Skeleton className="h-4 w-20" /> :
+                    <span className="font-bold text-foreground">
+                      {faturamentoData?.estimativa?.anual
+                        ? (faturamentoData.estimativa.anual >= 1e9 ? `R$ ${(faturamentoData.estimativa.anual/1e9).toFixed(1)}B` : faturamentoData.estimativa.anual >= 1e6 ? `R$ ${(faturamentoData.estimativa.anual/1e6).toFixed(1)}M` : `R$ ${(faturamentoData.estimativa.anual/1e3).toFixed(0)}K`)
+                        : 'Aguardando...'}
+                    </span>
+                  }
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Endividamento</span>
+                  {endividamentoLoading ? <Skeleton className="h-4 w-20" /> :
+                    <Badge variant="outline" className={`text-[10px] ${
+                      endividamentoData?.nivel === 'nenhum' ? 'bg-emerald-50 text-emerald-700 border-emerald-300' :
+                      endividamentoData?.nivel === 'baixo' ? 'bg-blue-50 text-blue-700 border-blue-300' :
+                      endividamentoData?.nivel === 'moderado' ? 'bg-amber-50 text-amber-700 border-amber-300' :
+                      endividamentoData?.nivel === 'alto' ? 'bg-red-50 text-red-700 border-red-300' :
+                      'bg-muted text-muted-foreground'
+                    }`}>
+                      {endividamentoData?.nivel ? endividamentoData.nivel.charAt(0).toUpperCase() + endividamentoData.nivel.slice(1) : 'Aguardando...'}
+                    </Badge>
+                  }
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Dívidas Públicas</span>
+                  {dividasLoading ? <Skeleton className="h-4 w-20" /> :
+                    <span className={`font-bold ${dividasData ? ((Object.values(dividasData) as any[]).reduce((a: number, s: any) => a + (s.encontrados || 0), 0) > 0 ? 'text-red-600' : 'text-emerald-600') : 'text-muted-foreground'}`}>
+                      {dividasData ? ((Object.values(dividasData) as any[]).reduce((a: number, s: any) => a + (s.encontrados || 0), 0) > 0 ? `⚠️ ${(Object.values(dividasData) as any[]).reduce((a: number, s: any) => a + (s.encontrados || 0), 0)} registros` : '✅ Nenhuma') : 'Aguardando...'}
+                    </span>
+                  }
+                </div>
+              </div>
+            </div>
+
+            {/* Compliance */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">⚖️ Compliance & Transparência</p>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Sanções Gov.</span>
+                  {portalLoading ? <Skeleton className="h-4 w-20" /> :
+                    <span className={`font-bold ${portalData?.resumo?.sancoes?.length > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                      {portalData?.resumo ? (portalData.resumo.sancoes?.length > 0 ? `⚠️ ${portalData.resumo.sancoes.length} sanções` : '✅ Nenhuma') : 'Aguardando...'}
+                    </span>
+                  }
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Contratos Gov.</span>
+                  {portalLoading ? <Skeleton className="h-4 w-20" /> :
+                    <span className="font-medium text-foreground">
+                      {portalData?.resumo?.contratos?.length > 0 ? `${portalData.resumo.contratos.length} encontrados` : portalData ? 'Nenhum' : 'Aguardando...'}
+                    </span>
+                  }
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Garantias</span>
+                  {garantiasLoading ? <Skeleton className="h-4 w-20" /> :
+                    <span className="font-medium text-foreground">
+                      {garantiasData?.estimativa?.capacidadeGarantia
+                        ? garantiasData.estimativa.capacidadeGarantia.charAt(0).toUpperCase() + garantiasData.estimativa.capacidadeGarantia.slice(1)
+                        : 'Aguardando...'}
+                    </span>
+                  }
+                </div>
+              </div>
+            </div>
+
+            {/* Crédito Internacional */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">🌐 Crédito Internacional</p>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Status</span>
+                  {creditoIntLoading ? <Skeleton className="h-4 w-20" /> :
+                    <Badge variant="outline" className={`text-[10px] ${
+                      creditoIntData?.status === 'confirmado' ? 'bg-emerald-50 text-emerald-700 border-emerald-300' :
+                      creditoIntData?.status === 'provavel' ? 'bg-blue-50 text-blue-700 border-blue-300' :
+                      creditoIntData?.status === 'possivel' ? 'bg-amber-50 text-amber-700 border-amber-300' :
+                      'bg-muted text-muted-foreground'
+                    }`}>
+                      {creditoIntData?.status === 'confirmado' ? '✅ Confirmado' :
+                       creditoIntData?.status === 'provavel' ? '⚡ Provável' :
+                       creditoIntData?.status === 'possivel' ? '🔍 Possível' :
+                       creditoIntData ? '❌ N/A' : 'Aguardando...'}
+                    </Badge>
+                  }
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Score Interno</span>
+                  <span className={`font-bold ${credito.cor}`}>{credito.score}/100 ({credito.nivel})</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Dados Reais</span>
+                  {dadosReaisLoading ? <Skeleton className="h-4 w-20" /> :
+                    <span className="font-medium text-foreground">
+                      {dadosReaisData ? `${dadosReaisData.verificacao?.total_dados || 0} categorias · ${dadosReaisData.verificacao?.total_fontes || 0} fontes` : 'Aguardando...'}
+                    </span>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* PROGRESS DASHBOARD */}
       {!allDone && (
         <Card className="border-2 border-primary/30 bg-gradient-to-r from-primary/5 to-accent/10 overflow-hidden">
