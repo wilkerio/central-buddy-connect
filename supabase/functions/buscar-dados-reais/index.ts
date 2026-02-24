@@ -74,6 +74,12 @@ Deno.serve(async (req) => {
             }),
           });
 
+          const ct = response.headers.get('content-type') || '';
+          if (!ct.includes('application/json')) {
+            const text = await response.text();
+            console.error('Perplexity returned non-JSON:', text.substring(0, 200));
+            throw new Error(`API retornou ${response.status} (${ct || 'unknown'})`);
+          }
           const data = await response.json();
           if (!response.ok) throw new Error(`Perplexity error: ${response.status}`);
 
