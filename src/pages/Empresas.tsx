@@ -379,20 +379,20 @@ export default function Empresas() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
+      <header className="border-b border-border/60 bg-card sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
           <Link to="/">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div className="bg-accent rounded-lg p-2">
-            <Building2 className="h-5 w-5 text-accent-foreground" />
+          <div className="bg-primary rounded-lg p-2.5 shadow-sm">
+            <Building2 className="h-5 w-5 text-primary-foreground" />
           </div>
           <div className="flex-1">
-            <h1 className="text-lg font-bold text-foreground">Empresas & Capital</h1>
-            <p className="text-xs text-muted-foreground">
-              {searchMode === 'pool' ? 'Pool inicial' : '🔍 Varredura Brasil'} · {empresas.length} empresas
+            <h1 className="text-lg font-bold text-foreground tracking-tight">Empresas & Capital</h1>
+            <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-[0.12em]">
+              {searchMode === 'pool' ? 'Pool inicial' : 'Varredura Brasil'} · {empresas.length} empresas
               {searchMode === 'discovery' && discoveryStats.tentativas > 0 && (
                 <span className="ml-1">· {discoveryStats.encontradas}/{discoveryStats.tentativas} descobertas</span>
               )}
@@ -402,30 +402,29 @@ export default function Empresas() {
             variant={isRunning ? "destructive" : "default"}
             size="sm"
             onClick={() => setIsRunning(!isRunning)}
-            className="gap-2"
+            className="gap-2 font-semibold text-xs shadow-sm"
           >
             {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             {isRunning ? "Pausar" : "Retomar"}
           </Button>
           <Link to="/internacionalizacao/analise">
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2 text-xs font-semibold border-border/60">
               <Globe className="h-4 w-4" />
               Análise ACI
             </Button>
           </Link>
         </div>
-        {/* Search status bar */}
         {isRunning && currentSearch && (
-          <div className="border-t bg-muted/50 px-4 py-1.5">
-            <div className="max-w-6xl mx-auto flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              {searchMode === 'discovery' ? '🔍 Varredura' : 'Pool'}: CNPJ {formatCnpj(currentSearch)}...
+          <div className="border-t border-border/40 bg-primary/3 px-6 py-1.5">
+            <div className="max-w-7xl mx-auto flex items-center gap-2 text-xs text-muted-foreground font-medium">
+              <Loader2 className="h-3 w-3 animate-spin text-accent" />
+              {searchMode === 'discovery' ? 'Varredura' : 'Pool'}: CNPJ {formatCnpj(currentSearch)}...
             </div>
           </div>
         )}
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-8">
         {selectedEmpresa ? (
           <EmpresaDetail empresa={selectedEmpresa} onBack={() => setSelectedEmpresa(null)} formatCurrency={formatCurrency} formatCompact={formatCompact} formatCnpj={formatCnpj} />
         ) : (
