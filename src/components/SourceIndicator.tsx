@@ -53,7 +53,7 @@ const TIPO_FONTE_LABEL: Record<string, string> = {
 };
 
 export function SourceIndicator({ confianca, fontes, compact = false }: SourceIndicatorProps) {
-  const config = CONFIANCA_CONFIG[confianca];
+  const config = CONFIANCA_CONFIG[confianca as keyof typeof CONFIANCA_CONFIG] || CONFIANCA_CONFIG['estimativa'];
   const Icon = config.icon;
 
   if (compact) {
@@ -127,7 +127,7 @@ export function SourceIndicator({ confianca, fontes, compact = false }: SourceIn
 }
 
 export function SourceBadgeRow({ confianca, fontes }: { confianca: ConfiancaNivel; fontes: Fonte[] }) {
-  const config = CONFIANCA_CONFIG[confianca];
+  const config = CONFIANCA_CONFIG[confianca as keyof typeof CONFIANCA_CONFIG] || CONFIANCA_CONFIG['estimativa'];
   const Icon = config.icon;
 
   return (
