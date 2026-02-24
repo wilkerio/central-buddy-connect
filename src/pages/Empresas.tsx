@@ -1302,259 +1302,234 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
         </CardContent>
       </Card>
 
-      {/* PRÉ-RESUMO PREMIUM */}
-      <Card className="border-0 overflow-hidden shadow-xl relative glass-card">
-        {/* Gradient top bar - brand colors */}
-        <div className="h-1 bg-gradient-to-r from-primary via-accent to-[hsl(211,100%,45%)]" />
-        
+      {/* PAINEL COMPLETO DA EMPRESA */}
+      <Card className="border-0 overflow-hidden shadow-xl relative">
         {/* Header */}
-        <div className="px-5 py-3 bg-gradient-to-r from-[hsl(228,100%,8%)] via-[hsl(270,60%,10%)] to-[hsl(228,100%,8%)] flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow">
-              <Zap className="h-4 w-4 text-accent-foreground" />
+        <div className="px-5 py-4 bg-gradient-to-r from-card to-muted/30 border-b flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Building2 className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white tracking-wide">Diagnóstico Inteligente</h3>
-              <p className="text-[10px] text-slate-400">Análise 360° com dados verificados em tempo real</p>
+              <h3 className="text-base font-bold text-foreground">Visão Completa</h3>
+              <p className="text-xs text-muted-foreground">Análise em tempo real · {searches.filter(s => s.done).length}/{searches.length} fontes consultadas</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {!allDone && (
-              <div className="flex items-center gap-1.5 bg-blue-500/20 px-2.5 py-1 rounded-full">
-                <Loader2 className="h-3 w-3 animate-spin text-blue-400" />
-                <span className="text-[10px] font-medium text-blue-300">{completedCount}/{searches.length} fontes</span>
-              </div>
-            )}
-            {allDone && (
-              <div className="flex items-center gap-1.5 bg-emerald-500/20 px-2.5 py-1 rounded-full">
-                <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                <span className="text-[10px] font-medium text-emerald-300">100% verificado</span>
-              </div>
-            )}
-          </div>
+          {allDone ? (
+            <Badge className="bg-[hsl(153,100%,39%)]/15 text-[hsl(153,100%,39%)] border-[hsl(153,100%,39%)]/30 text-xs">
+              <CheckCircle2 className="h-3 w-3 mr-1" /> Completo
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-xs gap-1.5">
+              <Loader2 className="h-3 w-3 animate-spin" /> Analisando...
+            </Badge>
+          )}
         </div>
 
         <CardContent className="p-0">
-          {/* Main KPI Strip */}
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-border">
+          {/* KPI Grid - 5 colunas */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 divide-x divide-y md:divide-y-0 divide-border">
             {/* Faturamento */}
-            <div className="p-4 group hover:bg-accent/10 transition-colors cursor-pointer" onClick={() => setActiveTab("financeiro")}>
-              <div className="flex items-center gap-1.5 mb-2">
+            <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => setActiveTab("financeiro")}>
+              <div className="flex items-center gap-1.5 mb-1.5">
                 <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Faturamento</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Faturamento</span>
               </div>
-              {faturamentoLoading ? (
-                <div className="space-y-1.5">
-                  <Skeleton className="h-6 w-24" />
-                  <Skeleton className="h-3 w-16" />
-                </div>
-              ) : (
-                <>
-                  <p className="text-xl font-black text-foreground leading-tight">
-                    {faturamentoData?.estimativa?.anual
-                      ? (faturamentoData.estimativa.anual >= 1e9 ? `R$ ${(faturamentoData.estimativa.anual/1e9).toFixed(1)}B` : faturamentoData.estimativa.anual >= 1e6 ? `R$ ${(faturamentoData.estimativa.anual/1e6).toFixed(1)}M` : `R$ ${(faturamentoData.estimativa.anual/1e3).toFixed(0)}K`)
-                      : '—'}
-                  </p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <ShieldCheck className="h-2.5 w-2.5 text-emerald-500" />
-                    <span className="text-[9px] text-emerald-600 font-medium">Receita Federal + Perplexity</span>
-                  </div>
-                </>
+              {faturamentoLoading ? <Skeleton className="h-6 w-20" /> : (
+                <p className="text-lg font-black text-foreground">
+                  {faturamentoData?.estimativa?.anual
+                    ? (faturamentoData.estimativa.anual >= 1e9 ? `R$ ${(faturamentoData.estimativa.anual/1e9).toFixed(1)}B` : faturamentoData.estimativa.anual >= 1e6 ? `R$ ${(faturamentoData.estimativa.anual/1e6).toFixed(1)}M` : `R$ ${(faturamentoData.estimativa.anual/1e3).toFixed(0)}K`)
+                    : '—'}
+                </p>
               )}
+              <span className="text-[9px] text-muted-foreground">anual estimado</span>
             </div>
 
             {/* Dívidas */}
-            <div className="p-4 group hover:bg-accent/10 transition-colors cursor-pointer" onClick={() => setActiveTab("compliance")}>
-              <div className="flex items-center gap-1.5 mb-2">
+            <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => setActiveTab("compliance")}>
+              <div className="flex items-center gap-1.5 mb-1.5">
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Dívidas</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Dívidas</span>
               </div>
-              {dividasLoading ? (
-                <div className="space-y-1.5">
-                  <Skeleton className="h-6 w-24" />
-                  <Skeleton className="h-3 w-16" />
-                </div>
-              ) : (() => {
+              {dividasLoading ? <Skeleton className="h-6 w-20" /> : (() => {
                 const totalDividas = dividasData ? (Object.values(dividasData) as any[]).reduce((a: number, s: any) => a + (s.encontrados || 0), 0) : 0;
-                return (
-                  <>
-                    <p className={`text-xl font-black leading-tight ${totalDividas > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                      {dividasData ? (totalDividas > 0 ? `${totalDividas} registros` : '✅ Nenhuma') : '—'}
-                    </p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <ShieldCheck className="h-2.5 w-2.5 text-emerald-500" />
-                      <span className="text-[9px] text-emerald-600 font-medium">PGFN + Protestos + CADIN</span>
-                    </div>
-                  </>
-                );
+                return <p className={`text-lg font-black ${totalDividas > 0 ? 'text-destructive' : 'text-[hsl(153,100%,39%)]'}`}>{dividasData ? (totalDividas > 0 ? `${totalDividas} registros` : 'Nenhuma') : '—'}</p>;
               })()}
+              <span className="text-[9px] text-muted-foreground">PGFN · Protestos · CADIN</span>
             </div>
 
             {/* Endividamento */}
-            <div className="p-4 group hover:bg-accent/10 transition-colors cursor-pointer" onClick={() => setActiveTab("financeiro")}>
-              <div className="flex items-center gap-1.5 mb-2">
+            <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => setActiveTab("financeiro")}>
+              <div className="flex items-center gap-1.5 mb-1.5">
                 <Landmark className="h-3.5 w-3.5 text-violet-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Endividamento</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Endividamento</span>
               </div>
-              {endividamentoLoading ? (
-                <div className="space-y-1.5">
-                  <Skeleton className="h-6 w-24" />
-                  <Skeleton className="h-3 w-16" />
-                </div>
-              ) : (
-                <>
-                  <p className={`text-xl font-black leading-tight ${
-                    endividamentoData?.nivel === 'nenhum' ? 'text-emerald-600' :
-                    endividamentoData?.nivel === 'baixo' ? 'text-blue-600' :
-                    endividamentoData?.nivel === 'moderado' ? 'text-amber-600' :
-                    endividamentoData?.nivel === 'alto' ? 'text-red-600' : 'text-muted-foreground'
-                  }`}>
-                    {endividamentoData?.nivel
-                      ? (endividamentoData.nivel === 'nenhum' ? '✅ Nenhum' : endividamentoData.nivel.charAt(0).toUpperCase() + endividamentoData.nivel.slice(1))
-                      : '—'}
-                  </p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <ShieldCheck className="h-2.5 w-2.5 text-emerald-500" />
-                    <span className="text-[9px] text-emerald-600 font-medium">SCR / Banco Central</span>
-                  </div>
-                </>
+              {endividamentoLoading ? <Skeleton className="h-6 w-20" /> : (
+                <p className={`text-lg font-black ${
+                  endividamentoData?.nivel === 'nenhum' ? 'text-[hsl(153,100%,39%)]' :
+                  endividamentoData?.nivel === 'baixo' ? 'text-blue-600' :
+                  endividamentoData?.nivel === 'moderado' ? 'text-amber-600' :
+                  endividamentoData?.nivel === 'alto' ? 'text-destructive' : 'text-muted-foreground'
+                }`}>
+                  {endividamentoData?.nivel ? endividamentoData.nivel.charAt(0).toUpperCase() + endividamentoData.nivel.slice(1) : '—'}
+                </p>
               )}
+              <span className="text-[9px] text-muted-foreground">SCR / Banco Central</span>
             </div>
 
-            {/* Crédito Internacional */}
-            <div className="p-4 group hover:bg-accent/10 transition-colors cursor-pointer" onClick={() => setActiveTab("credito")}>
-              <div className="flex items-center gap-1.5 mb-2">
-                <Globe className="h-3.5 w-3.5 text-cyan-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Créd. Internacional</span>
+            {/* Sanções */}
+            <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => setActiveTab("compliance")}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Ban className="h-3.5 w-3.5 text-red-500" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sanções</span>
               </div>
-              {creditoIntLoading ? (
-                <div className="space-y-1.5">
-                  <Skeleton className="h-6 w-24" />
-                  <Skeleton className="h-3 w-16" />
-                </div>
-              ) : (
-                <>
-                  <p className={`text-xl font-black leading-tight ${
-                    creditoIntData?.status === 'confirmado' ? 'text-emerald-600' :
-                    creditoIntData?.status === 'provavel' ? 'text-blue-600' :
-                    creditoIntData?.status === 'possivel' ? 'text-amber-600' :
-                    'text-muted-foreground'
-                  }`}>
-                    {creditoIntData?.status === 'confirmado' ? '✅ Confirmado' :
-                     creditoIntData?.status === 'provavel' ? '⚡ Provável' :
-                     creditoIntData?.status === 'possivel' ? '🔍 Possível' :
-                     creditoIntData ? '❌ N/A' : '—'}
-                  </p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <ShieldCheck className="h-2.5 w-2.5 text-emerald-500" />
-                    <span className="text-[9px] text-emerald-600 font-medium">Perplexity + CVM + BNDES</span>
-                  </div>
-                </>
+              {portalLoading ? <Skeleton className="h-6 w-20" /> : (
+                <p className={`text-lg font-black ${(portalData?.resumo?.sancoes?.length || 0) > 0 ? 'text-destructive' : 'text-[hsl(153,100%,39%)]'}`}>
+                  {portalData?.resumo ? ((portalData.resumo.sancoes?.length || 0) > 0 ? `${portalData.resumo.sancoes.length} ativas` : 'Regular') : '—'}
+                </p>
               )}
+              <span className="text-[9px] text-muted-foreground">Portal Transparência</span>
+            </div>
+
+            {/* Score */}
+            <div className="p-4 hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => setActiveTab("credito")}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Zap className="h-3.5 w-3.5 text-primary" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Score</span>
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <p className={`text-lg font-black ${credito.cor}`}>{credito.score}</p>
+                <span className="text-xs text-muted-foreground">/100</span>
+              </div>
+              <span className="text-[9px] text-muted-foreground">{credito.fatores.length} fatores</span>
             </div>
           </div>
 
-          {/* Secondary metrics row */}
+          {/* DÍVIDAS RECENTES - seção actionable */}
+          {!dividasLoading && dividasData && (() => {
+            const allDividaItems: Array<{ tipo: string; label: string; titulo: string; descricao: string; url: string; fonte: string; valores: string[] }> = [];
+            for (const [tipo, section] of Object.entries(dividasData) as [string, any][]) {
+              if (section.items && section.items.length > 0) {
+                for (const item of section.items.slice(0, 5)) {
+                  allDividaItems.push({
+                    tipo,
+                    label: section.label || tipo,
+                    titulo: item.titulo || 'Registro',
+                    descricao: item.descricao || '',
+                    url: item.url || '',
+                    fonte: item.fonte || '',
+                    valores: section.valores || [],
+                  });
+                }
+              }
+            }
+            if (allDividaItems.length === 0) return null;
+
+            return (
+              <div className="border-t">
+                <div className="px-5 py-3 bg-destructive/5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <span className="text-sm font-bold text-foreground">Dívidas & Pendências Recentes</span>
+                    <Badge variant="destructive" className="text-[10px]">{allDividaItems.length} encontradas</Badge>
+                  </div>
+                  <Button variant="ghost" size="sm" className="text-xs gap-1 text-destructive hover:text-destructive" onClick={() => setActiveTab("compliance")}>
+                    Ver todas <ChevronRight className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="divide-y divide-border">
+                  {allDividaItems.slice(0, 5).map((item, i) => (
+                    <div key={i} className="px-5 py-3 flex items-start gap-3 hover:bg-muted/30 transition-colors">
+                      <div className={`mt-0.5 h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        item.tipo === 'divida_ativa' ? 'bg-red-100 dark:bg-red-950/40' :
+                        item.tipo === 'protestos' ? 'bg-amber-100 dark:bg-amber-950/40' :
+                        'bg-orange-100 dark:bg-orange-950/40'
+                      }`}>
+                        {item.tipo === 'divida_ativa' ? <Receipt className="h-4 w-4 text-red-600" /> :
+                         item.tipo === 'protestos' ? <FileText className="h-4 w-4 text-amber-600" /> :
+                         <Gavel className="h-4 w-4 text-orange-600" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{item.label}</Badge>
+                          {item.valores.length > 0 && (
+                            <span className="text-[10px] font-bold text-destructive">{item.valores[0]}</span>
+                          )}
+                        </div>
+                        <p className="text-xs font-medium text-foreground truncate">{item.titulo}</p>
+                        {item.descricao && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{item.descricao.substring(0, 120)}</p>}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {item.url && (
+                          <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent/80">
+                            <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1">
+                              <ExternalLink className="h-3 w-3" /> Resolver
+                            </Button>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Secondary row - Garantias, Crédito Int, Contratos */}
           <div className="border-t bg-muted/20">
-            <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-border">
-              {/* Sanções */}
-               <div className="px-4 py-3 cursor-pointer hover:bg-accent/10 transition-colors" onClick={() => setActiveTab("compliance")}>
+            <div className="grid grid-cols-3 divide-x divide-border">
+              <div className="px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setActiveTab("garantias")}>
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-muted-foreground font-medium">Sanções Governamentais</span>
-                  {portalLoading ? <Skeleton className="h-4 w-16" /> :
-                    <span className={`text-xs font-bold ${portalData?.resumo?.sancoes?.length > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                      {portalData?.resumo ? (portalData.resumo.sancoes?.length > 0 ? `⚠️ ${portalData.resumo.sancoes.length}` : '✅ 0') : '—'}
-                    </span>
-                  }
-                </div>
-                {!portalLoading && portalData && (
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <ShieldCheck className="h-2 w-2 text-emerald-500" />
-                    <span className="text-[8px] text-emerald-600">Portal Transparência</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Contratos Gov */}
-              <div className="px-4 py-3 cursor-pointer hover:bg-accent/10 transition-colors" onClick={() => setActiveTab("compliance")}>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-muted-foreground font-medium">Contratos Governo</span>
-                  {portalLoading ? <Skeleton className="h-4 w-16" /> :
-                    <span className="text-xs font-bold text-foreground">
-                      {portalData?.resumo?.contratos?.length > 0 ? portalData.resumo.contratos.length : portalData ? '0' : '—'}
-                    </span>
-                  }
-                </div>
-                {!portalLoading && portalData && (
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <ShieldCheck className="h-2 w-2 text-emerald-500" />
-                    <span className="text-[8px] text-emerald-600">Portal Transparência</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Garantias */}
-              <div className="px-4 py-3 cursor-pointer hover:bg-accent/10 transition-colors" onClick={() => setActiveTab("garantias")}>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-muted-foreground font-medium">Capacidade de Garantia</span>
+                  <span className="text-[10px] text-muted-foreground font-medium">Garantias</span>
                   {garantiasLoading ? <Skeleton className="h-4 w-16" /> :
                     <span className={`text-xs font-bold ${
-                      garantiasData?.estimativa?.capacidadeGarantia === 'alta' ? 'text-emerald-600' :
+                      garantiasData?.estimativa?.capacidadeGarantia === 'alta' ? 'text-[hsl(153,100%,39%)]' :
                       garantiasData?.estimativa?.capacidadeGarantia === 'media' ? 'text-amber-600' :
-                      garantiasData?.estimativa?.capacidadeGarantia === 'baixa' ? 'text-red-600' :
+                      garantiasData?.estimativa?.capacidadeGarantia === 'baixa' ? 'text-destructive' :
                       'text-muted-foreground'
                     }`}>
                       {garantiasData?.estimativa?.capacidadeGarantia
                         ? garantiasData.estimativa.capacidadeGarantia.charAt(0).toUpperCase() + garantiasData.estimativa.capacidadeGarantia.slice(1)
                         : '—'}
-                    </span>
-                  }
+                    </span>}
                 </div>
-                {!garantiasLoading && garantiasData && (
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <ShieldCheck className="h-2 w-2 text-emerald-500" />
-                    <span className="text-[8px] text-emerald-600">Receita Federal + Análise</span>
-                  </div>
-                )}
               </div>
-
-              {/* Score */}
-              <div className="px-4 py-3 cursor-pointer hover:bg-accent/10 transition-colors" onClick={() => setActiveTab("credito")}>
+              <div className="px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setActiveTab("credito")}>
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-muted-foreground font-medium">Score de Crédito</span>
-                  <span className={`text-xs font-bold ${credito.cor}`}>{credito.score}/100</span>
+                  <span className="text-[10px] text-muted-foreground font-medium">Créd. Internacional</span>
+                  {creditoIntLoading ? <Skeleton className="h-4 w-16" /> :
+                    <span className={`text-xs font-bold ${
+                      creditoIntData?.status === 'confirmado' ? 'text-[hsl(153,100%,39%)]' :
+                      creditoIntData?.status === 'provavel' ? 'text-blue-600' :
+                      'text-muted-foreground'
+                    }`}>
+                      {creditoIntData?.status === 'confirmado' ? 'Confirmado' :
+                       creditoIntData?.status === 'provavel' ? 'Provável' :
+                       creditoIntData?.status === 'possivel' ? 'Possível' :
+                       creditoIntData ? 'N/A' : '—'}
+                    </span>}
                 </div>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <ShieldCheck className="h-2 w-2 text-emerald-500" />
-                  <span className="text-[8px] text-emerald-600">Algoritmo ACI · {credito.fatores.length} fatores</span>
+              </div>
+              <div className="px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setActiveTab("compliance")}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground font-medium">Contratos Gov.</span>
+                  {portalLoading ? <Skeleton className="h-4 w-16" /> :
+                    <span className="text-xs font-bold text-foreground">
+                      {portalData?.resumo?.contratos?.length > 0 ? `${portalData.resumo.contratos.length}` : portalData ? '0' : '—'}
+                    </span>}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Data sources footer */}
-          <div className="px-5 py-2.5 bg-gradient-to-r from-[hsl(153,100%,39%)]/10 to-accent/5 border-t border-border/30 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-[hsl(153,100%,39%)]" />
-                <span className="text-[10px] font-bold text-[hsl(153,100%,39%)]">DADOS 100% VERIFICADOS</span>
-              </div>
-              <div className="hidden sm:flex items-center gap-2 text-[9px] text-muted-foreground">
-                <span>Receita Federal</span>
-                <span>•</span>
-                <span>PGFN</span>
-                <span>•</span>
-                <span>Banco Central</span>
-                <span>•</span>
-                <span>CVM</span>
-                <span>•</span>
-                <span>Portal Transparência</span>
-              </div>
+          {/* Footer */}
+          <div className="px-5 py-2 bg-muted/30 border-t flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck className="h-3 w-3 text-[hsl(153,100%,39%)]" />
+              <span className="text-[9px] font-medium text-muted-foreground">Receita Federal · PGFN · BCB · CVM · Portal Transparência</span>
             </div>
             {dadosReaisData && (
-              <Badge variant="outline" className="text-[9px] bg-background">
-                {dadosReaisData.verificacao?.total_fontes || 0} fontes · {dadosReaisData.verificacao?.fontes_oficiais || 0} oficiais
-              </Badge>
+              <span className="text-[9px] text-muted-foreground">{dadosReaisData.verificacao?.total_fontes || 0} fontes</span>
             )}
           </div>
         </CardContent>
