@@ -1005,6 +1005,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
   formatCnpj: (v: string) => string;
 }) {
   const credito = calcularPotencialCreditoInternacional(empresa);
+  const [activeTab, setActiveTab] = useState("dados-reais");
   const [portalData, setPortalData] = useState<any>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
@@ -1250,15 +1251,15 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
       </Card>
 
       {/* PRÉ-RESUMO PREMIUM */}
-      <Card className="border-0 overflow-hidden shadow-xl relative">
-        {/* Gradient top bar */}
-        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-blue-500 to-violet-500" />
+      <Card className="border-0 overflow-hidden shadow-xl relative glass-card">
+        {/* Gradient top bar - brand colors */}
+        <div className="h-1 bg-gradient-to-r from-primary via-accent to-[hsl(211,100%,45%)]" />
         
         {/* Header */}
-        <div className="px-5 py-3 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 flex items-center justify-between">
+        <div className="px-5 py-3 bg-gradient-to-r from-[hsl(228,100%,8%)] via-[hsl(270,60%,10%)] to-[hsl(228,100%,8%)] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center">
-              <Zap className="h-4 w-4 text-white" />
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow">
+              <Zap className="h-4 w-4 text-accent-foreground" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-white tracking-wide">Diagnóstico Inteligente</h3>
@@ -1285,7 +1286,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
           {/* Main KPI Strip */}
           <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-border">
             {/* Faturamento */}
-            <div className="p-4 group hover:bg-accent/30 transition-colors">
+            <div className="p-4 group hover:bg-accent/10 transition-colors cursor-pointer" onClick={() => setActiveTab("financeiro")}>
               <div className="flex items-center gap-1.5 mb-2">
                 <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Faturamento</span>
@@ -1311,7 +1312,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
             </div>
 
             {/* Dívidas */}
-            <div className="p-4 group hover:bg-accent/30 transition-colors">
+            <div className="p-4 group hover:bg-accent/10 transition-colors cursor-pointer" onClick={() => setActiveTab("compliance")}>
               <div className="flex items-center gap-1.5 mb-2">
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Dívidas</span>
@@ -1338,7 +1339,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
             </div>
 
             {/* Endividamento */}
-            <div className="p-4 group hover:bg-accent/30 transition-colors">
+            <div className="p-4 group hover:bg-accent/10 transition-colors cursor-pointer" onClick={() => setActiveTab("financeiro")}>
               <div className="flex items-center gap-1.5 mb-2">
                 <Landmark className="h-3.5 w-3.5 text-violet-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Endividamento</span>
@@ -1369,7 +1370,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
             </div>
 
             {/* Crédito Internacional */}
-            <div className="p-4 group hover:bg-accent/30 transition-colors">
+            <div className="p-4 group hover:bg-accent/10 transition-colors cursor-pointer" onClick={() => setActiveTab("credito")}>
               <div className="flex items-center gap-1.5 mb-2">
                 <Globe className="h-3.5 w-3.5 text-cyan-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Créd. Internacional</span>
@@ -1405,7 +1406,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
           <div className="border-t bg-muted/20">
             <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-border">
               {/* Sanções */}
-              <div className="px-4 py-3">
+               <div className="px-4 py-3 cursor-pointer hover:bg-accent/10 transition-colors" onClick={() => setActiveTab("compliance")}>
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-muted-foreground font-medium">Sanções Governamentais</span>
                   {portalLoading ? <Skeleton className="h-4 w-16" /> :
@@ -1423,7 +1424,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
               </div>
 
               {/* Contratos Gov */}
-              <div className="px-4 py-3">
+              <div className="px-4 py-3 cursor-pointer hover:bg-accent/10 transition-colors" onClick={() => setActiveTab("compliance")}>
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-muted-foreground font-medium">Contratos Governo</span>
                   {portalLoading ? <Skeleton className="h-4 w-16" /> :
@@ -1441,7 +1442,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
               </div>
 
               {/* Garantias */}
-              <div className="px-4 py-3">
+              <div className="px-4 py-3 cursor-pointer hover:bg-accent/10 transition-colors" onClick={() => setActiveTab("garantias")}>
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-muted-foreground font-medium">Capacidade de Garantia</span>
                   {garantiasLoading ? <Skeleton className="h-4 w-16" /> :
@@ -1466,7 +1467,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
               </div>
 
               {/* Score */}
-              <div className="px-4 py-3">
+              <div className="px-4 py-3 cursor-pointer hover:bg-accent/10 transition-colors" onClick={() => setActiveTab("credito")}>
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-muted-foreground font-medium">Score de Crédito</span>
                   <span className={`text-xs font-bold ${credito.cor}`}>{credito.score}/100</span>
@@ -1480,11 +1481,11 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
           </div>
 
           {/* Data sources footer */}
-          <div className="px-5 py-2.5 bg-gradient-to-r from-emerald-50/80 to-blue-50/80 dark:from-emerald-950/20 dark:to-blue-950/20 border-t flex items-center justify-between">
+          <div className="px-5 py-2.5 bg-gradient-to-r from-[hsl(153,100%,39%)]/10 to-accent/5 border-t border-border/30 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">DADOS 100% VERIFICADOS</span>
+                <ShieldCheck className="h-3.5 w-3.5 text-[hsl(153,100%,39%)]" />
+                <span className="text-[10px] font-bold text-[hsl(153,100%,39%)]">DADOS 100% VERIFICADOS</span>
               </div>
               <div className="hidden sm:flex items-center gap-2 text-[9px] text-muted-foreground">
                 <span>Receita Federal</span>
@@ -1604,7 +1605,7 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
       )}
 
       {/* TABBED CONTENT */}
-      <Tabs defaultValue="dados-reais" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="dados-reais" className="text-xs gap-1">
             <Database className="h-3.5 w-3.5" />
