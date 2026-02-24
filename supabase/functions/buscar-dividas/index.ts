@@ -13,47 +13,25 @@ function urlToTitle(url: string): string {
   } catch { return url.substring(0, 80); }
 }
 
-function citationsToItems(citations: string[]) {
-  return citations.map((url: string) => ({
-    titulo: urlToTitle(url),
-    descricao: '',
-    url,
-    fonte: (() => { try { return new URL(url).hostname; } catch { return 'web'; } })(),
-  }));
-}
-
-async function perplexitySearch(apiKey: string, query: string): Promise<{ content: string; citations: string[] }> {
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
+async function firecrawlSearch(apiKey: string, query: string): Promise<Array<{ url: string; title: string; markdown: string; description: string }>> {
+  const response = await fetch('https://api.firecrawl.dev/v1/search', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'sonar',
-      messages: [
-        { role: 'system', content: 'Você é um analista de crédito brasileiro. Responda de forma estruturada e objetiva, incluindo valores monetários quando disponíveis. Sempre em português.' },
-        { role: 'user', content: query },
-      ],
-      temperature: 0.1,
+      query,
+      limit: 5,
+      lang: 'pt-br',
+      country: 'BR',
+      scrapeOptions: { formats: ['markdown'] },
     }),
   });
 
-  const contentType = response.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
-    const text = await response.text();
-    console.error('Perplexity returned non-JSON:', text.substring(0, 200));
-    throw new Error(`API retornou ${response.status} (${contentType || 'unknown'})`);
-  }
   const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error?.message || `Erro ${response.status}`);
-  }
-
-  return {
-    content: data.choices?.[0]?.message?.content || '',
-    citations: data.citations || [],
-  };
+  if (!response.ok) throw new Error(data.error || `Firecrawl error: ${response.status}`);
+  return data.data || [];
 }
 
 Deno.serve(async (req) => {
@@ -71,10 +49,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
+    const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Perplexity não configurado' }),
+        JSON.stringify({ success: false, error: 'Firecrawl não configurado' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -89,17 +67,17 @@ Deno.serve(async (req) => {
       {
         tipo: 'divida_ativa',
         label: 'Dívida Ativa da União',
-        query: `Pesquise sobre dívida ativa da União (PGFN) da empresa "${nome}" CNPJ ${cnpjFormatted}. Informe se há registros de débitos inscritos em dívida ativa, valores, e situação atual.`,
+        query: `"${nome}" CNPJ ${cnpjFormatted} dívida ativa PGFN débitos inscritos`,
       },
       {
         tipo: 'protestos',
         label: 'Protestos em Cartório',
-        query: `Pesquise sobre protestos em cartório da empresa "${nome}" CNPJ ${cnpjFormatted}. Informe se há títulos protestados, valores e cartórios envolvidos.`,
+        query: `"${nome}" CNPJ ${cnpjFormatted} protestos cartório títulos protestados`,
       },
       {
         tipo: 'processos',
         label: 'Processos Judiciais',
-        query: `Pesquise sobre processos judiciais e execuções fiscais da empresa "${nome}" CNPJ ${cnpjFormatted}. Informe processos relevantes, valores envolvidos e situação.`,
+        query: `"${nome}" CNPJ ${cnpjFormatted} processos judiciais execuções fiscais`,
       },
     ];
 
@@ -108,20 +86,23 @@ Deno.serve(async (req) => {
     await Promise.all(
       searches.map(async (search) => {
         try {
-          const { content, citations } = await perplexitySearch(apiKey, search.query);
-          const valores = content.match(/R\$\s?[\d.,]+/g) || [];
-          const items = citationsToItems(citations);
-          // Add summary as first item description
-          if (items.length > 0 && content) {
-            items[0].descricao = content.substring(0, 200);
-          }
+          const searchResults = await firecrawlSearch(apiKey, search.query);
+          const items = searchResults.map(r => ({
+            titulo: r.title || urlToTitle(r.url || ''),
+            descricao: (r.markdown || r.description || '').substring(0, 200),
+            url: r.url,
+            fonte: (() => { try { return new URL(r.url).hostname; } catch { return 'web'; } })(),
+          }));
+
+          const allContent = searchResults.map(r => r.markdown || r.description || '').join('\n');
+          const valores = allContent.match(/R\$\s?[\d.,]+/g) || [];
 
           results[search.tipo] = {
             label: search.label,
             encontrados: items.length,
             items,
             valores: [...new Set(valores)],
-            resumo: content,
+            resumo: allContent.substring(0, 500),
           };
         } catch (err) {
           console.error(`Error searching ${search.tipo}:`, err);
