@@ -12,6 +12,44 @@ interface DadoVerificado {
   detalhes?: string;
 }
 
+async function firecrawlSearch(apiKey: string, query: string): Promise<{ results: Array<{ url: string; title: string; markdown: string; description: string }> }> {
+  const response = await fetch('https://api.firecrawl.dev/v1/search', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query,
+      limit: 5,
+      lang: 'pt-br',
+      country: 'BR',
+      scrapeOptions: { formats: ['markdown'] },
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || `Firecrawl error: ${response.status}`);
+  return { results: data.data || [] };
+}
+
+function classifySource(url: string): { nome: string; tipo: string } {
+  let tipo = 'web';
+  let nome = '';
+  try {
+    const u = new URL(url);
+    nome = u.hostname.replace('www.', '');
+    if (nome.includes('gov.br') || nome.includes('cvm.gov') || nome.includes('bcb.gov')) tipo = 'oficial';
+    else if (nome.includes('b3.com') || nome.includes('bovespa')) tipo = 'oficial';
+    else if (nome.includes('valor.com') || nome.includes('infomoney') || nome.includes('bloomberg') || nome.includes('reuters')) tipo = 'imprensa_financeira';
+    else if (nome.includes('jusbrasil') || nome.includes('escavador') || nome.includes('consulta')) tipo = 'juridico';
+    else if (nome.includes('reclameaqui')) tipo = 'consumidor';
+  } catch {
+    nome = url.substring(0, 50);
+  }
+  return { nome, tipo };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -26,81 +64,44 @@ Deno.serve(async (req) => {
       );
     }
 
-    const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
+    const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
     const dados: DadoVerificado[] = [];
     const todasFontes: Array<{ nome: string; url: string; tipo: string }> = [];
 
-    // ===== PERPLEXITY: Busca geral com citações =====
-    if (perplexityKey) {
+    if (apiKey) {
       const queries = [
         {
           categoria: 'faturamento',
-          prompt: `Qual o faturamento, receita bruta e receita líquida anual da empresa "${razao_social}" (CNPJ: ${cnpj})? Busque dados de 2023, 2024 ou 2025. Informe valores exatos em R$ e a fonte oficial. Se for empresa listada, use dados da CVM/B3.`,
+          titulo: 'Faturamento & Receita',
+          query: `"${razao_social}" CNPJ ${cnpj} faturamento receita bruta receita líquida anual 2024 2025`,
         },
         {
           categoria: 'dividas_processos',
-          prompt: `A empresa "${razao_social}" (CNPJ: ${cnpj}) possui dívidas ativas, protestos, processos judiciais ou sanções governamentais? Busque em fontes oficiais (PGFN, tribunais, CEIS, CNEP). Informe valores e status.`,
+          titulo: 'Dívidas & Processos',
+          query: `"${razao_social}" CNPJ ${cnpj} dívida ativa protestos processos judiciais sanções PGFN CEIS`,
         },
         {
           categoria: 'reputacao_mercado',
-          prompt: `Qual a reputação de mercado da empresa "${razao_social}" (CNPJ: ${cnpj})? Busque notícias recentes, prêmios, reclamações no Reclame Aqui, rating de crédito e posição no mercado. Informe fatos concretos com datas.`,
+          titulo: 'Reputação de Mercado',
+          query: `"${razao_social}" CNPJ ${cnpj} reputação notícias reclamações Reclame Aqui rating crédito`,
         },
         {
           categoria: 'comercio_exterior',
-          prompt: `A empresa "${razao_social}" (CNPJ: ${cnpj}) realiza operações de comércio exterior (exportação/importação)? Busque dados no Comex Stat, Siscomex ou fontes oficiais. Informe volumes, países de destino e produtos.`,
+          titulo: 'Comércio Exterior',
+          query: `"${razao_social}" CNPJ ${cnpj} exportação importação comércio exterior Comex Stat`,
         },
       ];
 
-      const perplexityResults = await Promise.allSettled(
+      const searchResults = await Promise.allSettled(
         queries.map(async (q) => {
-          const response = await fetch('https://api.perplexity.ai/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${perplexityKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'sonar-pro',
-              messages: [
-                {
-                  role: 'system',
-                  content: 'Você é um analista de dados corporativos. Responda APENAS com fatos verificáveis e suas fontes. Nunca invente dados. Se não encontrar, diga explicitamente. Sempre em português brasileiro.',
-                },
-                { role: 'user', content: q.prompt },
-              ],
-              temperature: 0.1,
-              search_recency_filter: 'year',
-            }),
-          });
+          const { results } = await firecrawlSearch(apiKey, q.query);
 
-          const ct = response.headers.get('content-type') || '';
-          if (!ct.includes('application/json')) {
-            const text = await response.text();
-            console.error('Perplexity returned non-JSON:', text.substring(0, 200));
-            throw new Error(`API retornou ${response.status} (${ct || 'unknown'})`);
-          }
-          const data = await response.json();
-          if (!response.ok) throw new Error(`Perplexity error: ${response.status}`);
-
-          const content = data.choices?.[0]?.message?.content || '';
-          const citations = (data.citations || []) as string[];
-
-          const fontesCitadas = citations.map((url: string) => {
-            let tipo = 'web';
-            let nome = '';
-            try {
-              const u = new URL(url);
-              nome = u.hostname.replace('www.', '');
-              if (nome.includes('gov.br') || nome.includes('cvm.gov') || nome.includes('bcb.gov')) tipo = 'oficial';
-              else if (nome.includes('b3.com') || nome.includes('bovespa')) tipo = 'oficial';
-              else if (nome.includes('valor.com') || nome.includes('infomoney') || nome.includes('bloomberg') || nome.includes('reuters')) tipo = 'imprensa_financeira';
-              else if (nome.includes('jusbrasil') || nome.includes('escavador') || nome.includes('consulta')) tipo = 'juridico';
-              else if (nome.includes('reclameaqui')) tipo = 'consumidor';
-            } catch {
-              nome = url.substring(0, 50);
-            }
-            return { nome, url, tipo };
-          });
+          const fontesCitadas = results
+            .filter(r => r.url)
+            .map(r => {
+              const { nome, tipo } = classifySource(r.url);
+              return { nome, url: r.url, tipo };
+            });
 
           todasFontes.push(...fontesCitadas);
 
@@ -108,36 +109,31 @@ Deno.serve(async (req) => {
           const temImprensaFinanceira = fontesCitadas.some(f => f.tipo === 'imprensa_financeira');
           const confianca: DadoVerificado['confianca'] = temFonteOficial ? 'alta' : temImprensaFinanceira ? 'media' : fontesCitadas.length > 0 ? 'baixa' : 'estimativa';
 
-          const valores = content.match(/R\$\s?[\d.,]+(?:\s?(?:bilh[ãõ]es?|milh[ãõ]es?|mil|bi|mi|B|M|K))?/gi) || [];
+          const allContent = results.map(r => r.markdown || r.description || '').join('\n');
+          const valores = allContent.match(/R\$\s?[\d.,]+(?:\s?(?:bilh[ãõ]es?|milh[ãõ]es?|mil|bi|mi|B|M|K))?/gi) || [];
           const valorPrincipal = valores[0] || 'Não encontrado';
 
-          const naoEncontrado = content.toLowerCase().includes('não foram encontrad') || 
-            content.toLowerCase().includes('não há dados') ||
-            content.toLowerCase().includes('não foi possível') ||
-            content.toLowerCase().includes('não encontrei');
+          const naoEncontrado = results.length === 0 || allContent.length < 50;
 
           return {
             categoria: q.categoria,
-            titulo: q.categoria === 'faturamento' ? 'Faturamento & Receita' :
-                    q.categoria === 'dividas_processos' ? 'Dívidas & Processos' :
-                    q.categoria === 'reputacao_mercado' ? 'Reputação de Mercado' :
-                    'Comércio Exterior',
+            titulo: q.titulo,
             valor: naoEncontrado ? 'Sem dados públicos' : valorPrincipal,
             confianca: naoEncontrado ? 'estimativa' : confianca,
             fontes: fontesCitadas,
-            detalhes: content.substring(0, 500),
+            detalhes: allContent.substring(0, 500),
           } as DadoVerificado;
         })
       );
 
-      for (const result of perplexityResults) {
+      for (const result of searchResults) {
         if (result.status === 'fulfilled') {
           dados.push(result.value);
         }
       }
     }
 
-    // ===== 3. Dados da ReceitaWS (sempre alta confiança) =====
+    // Dados da ReceitaWS (sempre alta confiança)
     dados.unshift({
       categoria: 'cadastro_receita',
       titulo: 'Cadastro na Receita Federal',
@@ -147,10 +143,9 @@ Deno.serve(async (req) => {
       detalhes: `Porte: ${porte || 'N/A'} | CNAE: ${cnae_fiscal || 'N/A'}`,
     });
 
-    // Estatísticas gerais
     const fontesUnicas = [...new Map(todasFontes.map(f => [f.url, f])).values()];
     const fontesOficiais = fontesUnicas.filter(f => f.tipo === 'oficial').length;
-    const confiancaGeral: DadoVerificado['confianca'] = 
+    const confiancaGeral: DadoVerificado['confianca'] =
       fontesOficiais >= 2 ? 'alta' :
       fontesUnicas.length >= 3 ? 'media' :
       fontesUnicas.length >= 1 ? 'baixa' : 'estimativa';

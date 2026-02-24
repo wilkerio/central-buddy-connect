@@ -1,6 +1,6 @@
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 function urlToTitle(url: string): string {
@@ -28,10 +28,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
+    const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Perplexity não configurado' }),
+        JSON.stringify({ success: false, error: 'Firecrawl não configurado' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -41,58 +41,64 @@ Deno.serve(async (req) => {
 
     console.log('Buscando Portal da Transparência para:', cnpjFormatted);
 
-    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    const response = await fetch('https://api.firecrawl.dev/v1/search', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sonar',
-        messages: [
-          { role: 'system', content: 'Você é um analista de transparência pública. Pesquise informações no Portal da Transparência do Governo Federal sobre a empresa solicitada. Informe contratos com o governo, valores recebidos, sanções e penalidades. Seja objetivo e estruturado. Sempre em português.' },
-          { role: 'user', content: `Pesquise no Portal da Transparência sobre a empresa com CNPJ ${cnpjFormatted}. Informe: 1) Contratos e licitações com o governo, 2) Valores recebidos do governo federal, 3) Sanções, penalidades ou impedimentos, 4) Outras informações relevantes.` },
-        ],
-        temperature: 0.1,
-        search_domain_filter: ['portaldatransparencia.gov.br', 'gov.br'],
+        query: `Portal da Transparência empresa CNPJ ${cnpjFormatted} contratos licitações sanções penalidades valores recebidos governo federal`,
+        limit: 10,
+        lang: 'pt-br',
+        country: 'BR',
+        scrapeOptions: { formats: ['markdown'] },
       }),
     });
-
-    const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) {
-      const text = await response.text();
-      console.error('Perplexity returned non-JSON:', text.substring(0, 200));
-      return new Response(
-        JSON.stringify({ success: false, error: `API retornou formato inesperado (${response.status})` }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Perplexity error:', data);
+      console.error('Firecrawl error:', data);
       return new Response(
-        JSON.stringify({ success: false, error: data.error?.message || `Erro ${response.status}` }),
+        JSON.stringify({ success: false, error: data.error || `Erro ${response.status}` }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const content = data.choices?.[0]?.message?.content || '';
-    const citations = data.citations || [];
-    const resumo = extractResumo(content);
+    const results = data.data || [];
+    const markdownParts: string[] = [];
+    const fontes: Array<{ url: string; titulo: string; fonte: string }> = [];
 
-    const result = {
+    for (const result of results) {
+      const title = result.title || urlToTitle(result.url || '');
+      const content = result.markdown || result.description || '';
+      if (content) {
+        markdownParts.push(`## ${title}\n\n${content}`);
+      }
+      if (result.url) {
+        fontes.push({
+          url: result.url,
+          titulo: title,
+          fonte: (() => { try { return new URL(result.url).hostname; } catch { return 'web'; } })(),
+        });
+      }
+    }
+
+    const fullMarkdown = markdownParts.join('\n\n---\n\n');
+    const resumo = extractResumo(fullMarkdown);
+
+    const resultData = {
       success: true,
       cnpj: cleanCnpj,
       url: `https://portaldatransparencia.gov.br/pessoa-juridica/${cleanCnpj}`,
-      markdown: content,
+      markdown: fullMarkdown,
       resumo,
-      fontes: citations.map((url: string) => ({ url, titulo: urlToTitle(url), fonte: (() => { try { return new URL(url).hostname; } catch { return 'web'; } })() })),
+      fontes,
     };
 
     return new Response(
-      JSON.stringify(result),
+      JSON.stringify(resultData),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
