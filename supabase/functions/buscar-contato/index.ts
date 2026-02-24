@@ -1,60 +1,42 @@
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-async function buscarPerplexity(apiKey: string, nome: string, empresa: string, tipo: string) {
-  const prompt = tipo === 'email'
-    ? `Encontre TODOS os emails de "${nome}", sócio/diretor da empresa "${empresa}" no Brasil.
+async function buscarFirecrawl(apiKey: string, nome: string, empresa: string, tipo: string) {
+  const query = tipo === 'email'
+    ? `"${nome}" "${empresa}" email contato linkedin site oficial Brasil`
+    : `"${nome}" "${empresa}" telefone celular WhatsApp contato Brasil`;
 
-Pesquise em LinkedIn, site institucional de "${empresa}", Registro.br, Reclame Aqui, Jusbrasil, diários oficiais, artigos, entrevistas, redes sociais.
-
-IMPORTANTE: Identifique o domínio principal da empresa "${empresa}" (ex: empresa.com.br) e sugira padrões prováveis como:
-- nome.sobrenome@dominio.com.br
-- nome@dominio.com.br  
-- n.sobrenome@dominio.com.br
-- primeiro.ultimo@dominio.com.br
-
-Liste cada email encontrado OU inferido no formato:
-email@dominio.com — Fonte: [onde encontrou ou "padrão inferido"]`
-    : `Encontre telefone celular, WhatsApp ou telefone direto de "${nome}", sócio/diretor da empresa "${empresa}" no Brasil.
-
-Pesquise em: site de "${empresa}" (contato, equipe), LinkedIn, Google Maps, Reclame Aqui, Jusbrasil, diários oficiais, redes sociais, Telelistas, GuiaMais.
-
-IMPORTANTE: Priorize celulares (9 dígitos) pois têm WhatsApp. Inclua o DDD.
-
-Liste cada telefone no formato:
-(XX) XXXXX-XXXX — Fonte: [onde encontrou]`;
-
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
+  const response = await fetch('https://api.firecrawl.dev/v1/search', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'sonar',
-      messages: [
-        { role: 'system', content: 'Você é um pesquisador expert em OSINT focado em encontrar contatos de executivos brasileiros. Seja exaustivo nas buscas. Sempre retorne resultados, mesmo que sejam inferidos a partir de padrões corporativos.' },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.1,
+      query,
+      limit: 5,
+      lang: 'pt-br',
+      country: 'BR',
+      scrapeOptions: { formats: ['markdown'] },
     }),
   });
 
   const data = await response.json();
   if (!response.ok) {
-    console.error('Perplexity error:', response.status, data);
+    console.error('Firecrawl error:', response.status, data);
     return { content: '', citations: [] };
   }
 
-  return {
-    content: data.choices?.[0]?.message?.content || '',
-    citations: data.citations || [],
-  };
+  const results = data.data || [];
+  const content = results.map((r: any) => r.markdown || r.description || '').join('\n\n');
+  const citations = results.map((r: any) => r.url).filter(Boolean);
+
+  return { content, citations };
 }
 
-async function inferirEmailComIA(lovableKey: string, nome: string, empresa: string, dadosPerplexity: string) {
+async function inferirEmailComIA(lovableKey: string, nome: string, empresa: string, dadosWeb: string) {
   try {
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -82,7 +64,7 @@ Regras:
             content: `Nome: ${nome}
 Empresa: ${empresa}
 Dados já encontrados pela pesquisa web:
-${dadosPerplexity}
+${dadosWeb}
 
 Retorne um JSON com a estrutura:
 {
@@ -109,7 +91,6 @@ Retorne um JSON com a estrutura:
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
     
-    // Parse JSON from response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
@@ -136,12 +117,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
+    const firecrawlKey = Deno.env.get('FIRECRAWL_API_KEY');
     const lovableKey = Deno.env.get('LOVABLE_API_KEY');
 
-    if (!perplexityKey) {
+    if (!firecrawlKey) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Perplexity não configurado' }),
+        JSON.stringify({ success: false, error: 'Firecrawl não configurado' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -149,34 +130,32 @@ Deno.serve(async (req) => {
     const empresaNome = empresa || '';
     console.log(`Smart search (${tipo}): ${nome} @ ${empresaNome}`);
 
-    // Step 1: Perplexity web search
-    const perplexityResult = await buscarPerplexity(perplexityKey, nome, empresaNome, tipo);
+    // Step 1: Firecrawl web search
+    const webResult = await buscarFirecrawl(firecrawlKey, nome, empresaNome, tipo);
     
-    // Step 2: AI inference (only for email, and only if Lovable AI is available)
+    // Step 2: AI inference (only for email)
     let aiResult = null;
     if (tipo === 'email' && lovableKey) {
-      aiResult = await inferirEmailComIA(lovableKey, nome, empresaNome, perplexityResult.content);
+      aiResult = await inferirEmailComIA(lovableKey, nome, empresaNome, webResult.content);
     }
 
     // Step 3: Extract and merge contacts
     const contacts: { valor: string; fonte: string; tipo: string; confianca: string }[] = [];
 
     if (tipo === 'email') {
-      // Emails from Perplexity
       const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-      const emails = perplexityResult.content.match(emailRegex) || [];
+      const emails = webResult.content.match(emailRegex) || [];
       const genericPatterns = ['nome', 'sobrenome', 'dominio', 'exemplo', 'usuario', 'iniciais', 'primeiro', 'ultimo', 'meio', 'example', 'user@'];
       for (const email of emails) {
         const lower = email.toLowerCase();
         const isGeneric = genericPatterns.some(p => lower.includes(p));
         if (!isGeneric && !lower.includes('sentry') && !lower.includes('noreply') && !lower.includes('no-reply') && !lower.includes('teste@') && !lower.includes('test@')) {
           if (!contacts.find(c => c.valor === lower)) {
-            contacts.push({ valor: lower, fonte: 'Perplexity (web)', tipo: 'email', confianca: 'alta' });
+            contacts.push({ valor: lower, fonte: 'Firecrawl (web)', tipo: 'email', confianca: 'alta' });
           }
         }
       }
 
-      // Emails from AI inference
       if (aiResult?.emails) {
         for (const item of aiResult.emails) {
           const lower = (item.email || '').toLowerCase();
@@ -191,9 +170,8 @@ Deno.serve(async (req) => {
         }
       }
     } else {
-      // Phones from Perplexity
       const phoneRegex = /(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)?\d{4,5}[-.\s]?\d{4}/g;
-      const phones = perplexityResult.content.match(phoneRegex) || [];
+      const phones = webResult.content.match(phoneRegex) || [];
       for (const phone of phones) {
         const cleaned = phone.replace(/\D/g, '');
         if (cleaned.length >= 10 && cleaned.length <= 13) {
@@ -201,7 +179,7 @@ Deno.serve(async (req) => {
             const isCelular = cleaned.length >= 11 && cleaned.charAt(cleaned.length - 9) === '9';
             contacts.push({
               valor: phone.trim(),
-              fonte: 'Perplexity (web)',
+              fonte: 'Firecrawl (web)',
               tipo: isCelular ? 'celular' : 'telefone',
               confianca: 'alta',
             });
@@ -210,7 +188,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Sort: alta first, then media, then baixa
     const order = { alta: 0, media: 1, baixa: 2 };
     contacts.sort((a, b) => (order[a.confianca as keyof typeof order] || 2) - (order[b.confianca as keyof typeof order] || 2));
 
@@ -218,14 +195,14 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         contatos: contacts.slice(0, 10),
-        totalResultados: perplexityResult.citations.length,
-        resumo: perplexityResult.content,
+        totalResultados: webResult.citations.length,
+        resumo: webResult.content,
         aiDados: aiResult ? {
           dominio: aiResult.dominio_empresa,
           linkedin: aiResult.linkedin_provavel,
           obs: aiResult.observacoes,
         } : null,
-        fontes: perplexityResult.citations,
+        fontes: webResult.citations,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
