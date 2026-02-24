@@ -17,10 +17,10 @@ import {
 } from "recharts";
 
 const KEY_INDICATORS = [
-  { codigo: 11, nome: "Selic", icon: Percent, prefix: "", suffix: "% a.a.", color: "38 80% 52%" },
-  { codigo: 1, nome: "Dólar", icon: DollarSign, prefix: "R$ ", suffix: "", color: "152 55% 42%" },
-  { codigo: 433, nome: "IPCA", icon: TrendingUp, prefix: "", suffix: "%", color: "210 100% 60%" },
-  { codigo: 21619, nome: "Euro", icon: DollarSign, prefix: "R$ ", suffix: "", color: "280 70% 60%" },
+  { codigo: 11, nome: "Selic", icon: Percent, prefix: "", suffix: "% a.a.", color: "34 50% 66%" },
+  { codigo: 1, nome: "Dólar", icon: DollarSign, prefix: "R$ ", suffix: "", color: "153 100% 39%" },
+  { codigo: 433, nome: "IPCA", icon: TrendingUp, prefix: "", suffix: "%", color: "179 52% 53%" },
+  { codigo: 21619, nome: "Euro", icon: DollarSign, prefix: "R$ ", suffix: "", color: "211 100% 45%" },
 ];
 
 function SparklineCard({ codigo, nome, icon: Icon, prefix, suffix, color }: typeof KEY_INDICATORS[0]) {
@@ -170,9 +170,10 @@ const Index = () => {
       {/* Background grid */}
       <div className="fixed inset-0 dot-grid opacity-30 pointer-events-none" />
       
-      {/* Ambient gradient orbs */}
-      <div className="fixed top-0 left-1/4 w-[600px] h-[600px] rounded-full bg-accent/5 blur-[120px] pointer-events-none" />
-      <div className="fixed bottom-0 right-1/4 w-[400px] h-[400px] rounded-full bg-[hsl(210,100%,60%)]/5 blur-[100px] pointer-events-none" />
+      {/* Ambient gradient orbs - IC navy + Lumnis teal/purple */}
+      <div className="fixed top-0 left-1/4 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
+      <div className="fixed bottom-0 right-1/4 w-[400px] h-[400px] rounded-full bg-accent/5 blur-[100px] pointer-events-none" />
+      <div className="fixed top-1/2 right-0 w-[300px] h-[300px] rounded-full bg-secondary/10 blur-[80px] pointer-events-none" />
 
       {/* Header */}
       <header className="border-b border-border/40 bg-card/60 backdrop-blur-xl sticky top-0 z-50">
@@ -287,20 +288,20 @@ const Index = () => {
                 {/* Internacionalização Module */}
                 <Link to="/internacionalizacao/analise" className="block">
                   <div className="glass-card-hover rounded-xl p-6 group relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-[hsl(210,100%,60%)]/5 rounded-full blur-2xl group-hover:bg-[hsl(210,100%,60%)]/10 transition-all duration-700" />
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 rounded-full blur-2xl group-hover:bg-accent/10 transition-all duration-700" />
                     <div className="relative z-10">
                       <div className="flex items-start gap-4">
-                        <div className="rounded-xl bg-[hsl(210,100%,60%)]/10 p-3 border border-[hsl(210,100%,60%)]/20 group-hover:shadow-glow-blue transition-all duration-500">
-                          <Globe className="h-6 w-6 text-[hsl(210,100%,60%)]" />
+                        <div className="rounded-xl bg-accent/10 p-3 border border-accent/20 group-hover:shadow-glow-teal transition-all duration-500">
+                          <Globe className="h-6 w-6 text-accent" />
                         </div>
                         <div className="flex-1">
-                          <h3 className="text-sm font-bold text-foreground group-hover:text-[hsl(210,100%,60%)] transition-colors tracking-tight">
+                          <h3 className="text-sm font-bold text-foreground group-hover:text-accent transition-colors tracking-tight">
                             Análise de Internacionalização
                           </h3>
                           <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
                             Elegibilidade para crédito internacional, scoring e relatório técnico.
                           </p>
-                          <div className="flex items-center gap-1.5 mt-3.5 text-[10px] text-[hsl(210,100%,60%)] font-bold uppercase tracking-[0.15em]">
+                          <div className="flex items-center gap-1.5 mt-3.5 text-[10px] text-accent font-bold uppercase tracking-[0.15em]">
                             Iniciar Análise <ArrowRight className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
                           </div>
                         </div>
