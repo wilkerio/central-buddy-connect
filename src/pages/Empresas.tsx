@@ -1592,69 +1592,158 @@ function EmpresaDetail({ empresa, onBack, formatCurrency, formatCompact, formatC
         </Card>
       )}
 
-      {/* SUMMARY DASHBOARD - shows when all done */}
-      {allDone && (
-        <Card className="border-2 border-emerald-500/30 bg-gradient-to-r from-emerald-50/50 to-primary/5 dark:from-emerald-950/20 dark:to-primary/5 overflow-hidden">
-          <div className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4" />
-            ✅ Análise Completa
-          </div>
-          <CardContent className="pt-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <div className="rounded-xl border p-3 text-center bg-background">
-                <span className="text-lg">🌐</span>
-                <p className="text-xs font-bold mt-1 text-foreground">
-                  {creditoIntData?.status === 'confirmado' ? '✅ Confirmado' :
-                   creditoIntData?.status === 'provavel' ? '⚡ Provável' :
-                   creditoIntData?.status === 'possivel' ? '🔍 Possível' : '❌ N/A'}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Créd. Internac.</p>
+      {/* RESUMO INTELIGENTE - shows when all done */}
+      {allDone && (() => {
+        // Gerar resumo inteligente baseado nos dados coletados
+        const pontosFortesArr: string[] = [];
+        const pontosAtencaoArr: string[] = [];
+        const riscos: string[] = [];
+
+        // Faturamento
+        const fatAnual = faturamentoData?.estimativa?.anual || 0;
+        if (fatAnual >= 1e9) pontosFortesArr.push(`Faturamento robusto de ${fatAnual >= 1e9 ? `R$ ${(fatAnual/1e9).toFixed(1)}B` : `R$ ${(fatAnual/1e6).toFixed(0)}M`} ao ano, indicando solidez operacional`);
+        else if (fatAnual >= 100e6) pontosFortesArr.push(`Faturamento de ${`R$ ${(fatAnual/1e6).toFixed(0)}M`}/ano posiciona bem para operações de crédito`);
+        else if (fatAnual > 0 && fatAnual < 10e6) pontosAtencaoArr.push(`Faturamento abaixo de R$ 10M/ano pode limitar acesso a linhas de crédito maiores`);
+
+        // Dívidas
+        const totalDividas = dividasData ? (Object.values(dividasData) as any[]).reduce((a: number, s: any) => a + (s.encontrados || 0), 0) : 0;
+        if (totalDividas === 0) pontosFortesArr.push('Nenhuma dívida registrada em PGFN, Protestos ou CADIN — excelente posição fiscal');
+        else if (totalDividas <= 3) pontosAtencaoArr.push(`${totalDividas} registro(s) de dívida identificado(s) — requer análise de materialidade`);
+        else riscos.push(`${totalDividas} registros de dívida ativos representam risco de restrição de crédito`);
+
+        // Endividamento
+        if (endividamentoData?.nivel === 'nenhum') pontosFortesArr.push('Sem endividamento bancário registrado no SCR/Banco Central');
+        else if (endividamentoData?.nivel === 'alto') riscos.push('Alto endividamento bancário pode comprometer capacidade de pagamento');
+        else if (endividamentoData?.nivel === 'moderado') pontosAtencaoArr.push('Endividamento bancário moderado — monitorar relação dívida/receita');
+
+        // Sanções
+        const totalSancoes = portalData?.resumo?.sancoes?.length || 0;
+        if (totalSancoes === 0) pontosFortesArr.push('Sem sanções governamentais — compliance regular');
+        else riscos.push(`${totalSancoes} sanção(ões) governamental(ais) identificada(s) — impedimento para contratos públicos`);
+
+        // Contratos governo
+        const totalContratosGov = portalData?.resumo?.contratos?.length || 0;
+        if (totalContratosGov > 0) pontosFortesArr.push(`${totalContratosGov} contrato(s) com governo federal — experiência em licitações`);
+
+        // Garantias
+        if (garantiasData?.estimativa?.capacidadeGarantia === 'alta') pontosFortesArr.push('Alta capacidade de garantia — favorável para operações estruturadas');
+        else if (garantiasData?.estimativa?.capacidadeGarantia === 'baixa') pontosAtencaoArr.push('Baixa capacidade de garantia pode limitar acesso a crédito internacional');
+
+        // Crédito internacional
+        if (creditoIntData?.status === 'confirmado') pontosFortesArr.push('Experiência confirmada em operações internacionais');
+        else if (creditoIntData?.status === 'nao_encontrado') pontosAtencaoArr.push('Sem histórico de crédito internacional identificado');
+
+        // Score
+        if (credito.score >= 70) pontosFortesArr.push(`Score de crédito ${credito.score}/100 (${credito.nivel.toUpperCase()}) — bom perfil para captação`);
+        else if (credito.score < 40) riscos.push(`Score de crédito ${credito.score}/100 — perfil de risco elevado`);
+
+        const overallGood = riscos.length === 0 && pontosAtencaoArr.length <= 1;
+        const overallBad = riscos.length >= 2;
+
+        return (
+          <Card className="glass-card overflow-hidden">
+            {/* Header gradient */}
+            <div className={`h-1 ${overallBad ? 'bg-gradient-to-r from-destructive via-primary to-destructive' : overallGood ? 'bg-gradient-to-r from-[hsl(153,100%,39%)] via-accent to-primary' : 'bg-gradient-to-r from-primary via-accent to-[hsl(211,100%,45%)]'}`} />
+            <div className="px-5 py-3 bg-gradient-to-r from-[hsl(228,100%,8%)] to-[hsl(270,60%,10%)] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center shadow-glow ${overallBad ? 'bg-destructive' : overallGood ? 'bg-[hsl(153,100%,39%)]' : 'bg-accent'}`}>
+                  <Zap className="h-4 w-4 text-accent-foreground" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground tracking-wide">Resumo Inteligente</h3>
+                  <p className="text-[10px] text-muted-foreground">Análise consolidada com base em {searches.length} fontes verificadas</p>
+                </div>
               </div>
-              <div className="rounded-xl border p-3 text-center bg-background">
-                <span className="text-lg">📊</span>
-                <p className="text-xs font-bold mt-1 text-foreground">
-                  {faturamentoData?.estimativa?.anual
-                    ? (faturamentoData.estimativa.anual >= 1e9 ? `R$ ${(faturamentoData.estimativa.anual/1e9).toFixed(1)}B` : faturamentoData.estimativa.anual >= 1e6 ? `R$ ${(faturamentoData.estimativa.anual/1e6).toFixed(1)}M` : `R$ ${(faturamentoData.estimativa.anual/1e3).toFixed(0)}K`)
-                    : 'N/A'}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Fat. Anual</p>
-              </div>
-              <div className="rounded-xl border p-3 text-center bg-background">
-                <span className="text-lg">💰</span>
-                <p className="text-xs font-bold mt-1 text-foreground">
-                  {dividasData ? Object.values(dividasData).reduce((a: number, s: any) => a + (s.encontrados || 0), 0) + ' registros' : 'N/A'}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Dívidas</p>
-              </div>
-              <div className="rounded-xl border p-3 text-center bg-background">
-                <span className="text-lg">⚖️</span>
-                <p className="text-xs font-bold mt-1 text-foreground">
-                  {portalData?.resumo ? (portalData.resumo.sancoes?.length > 0 ? `⚠️ ${portalData.resumo.sancoes.length} sanções` : '✅ Regular') : 'N/A'}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Transparência</p>
-              </div>
-              <div className="rounded-xl border p-3 text-center bg-background">
-                <span className="text-lg">🛡️</span>
-                <p className="text-xs font-bold mt-1 text-foreground">
-                  {garantiasData?.estimativa?.capacidadeGarantia
-                    ? garantiasData.estimativa.capacidadeGarantia.charAt(0).toUpperCase() + garantiasData.estimativa.capacidadeGarantia.slice(1)
-                    : 'N/A'}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Garantias</p>
-              </div>
-              <div className="rounded-xl border p-3 text-center bg-background">
-                <span className="text-lg">🏦</span>
-                <p className="text-xs font-bold mt-1 text-foreground">
-                  {endividamentoData?.nivel
-                    ? (endividamentoData.nivel === 'nenhum' ? '✅ Nenhum' : endividamentoData.nivel.charAt(0).toUpperCase() + endividamentoData.nivel.slice(1))
-                    : 'N/A'}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Endividamento</p>
-              </div>
+              <Badge variant="outline" className={`text-[10px] font-bold ${overallBad ? 'border-destructive/40 text-destructive' : overallGood ? 'border-[hsl(153,100%,39%)]/40 text-[hsl(153,100%,39%)]' : 'border-accent/40 text-accent'}`}>
+                {overallBad ? '⚠️ Atenção Necessária' : overallGood ? '✅ Perfil Favorável' : '📊 Perfil Moderado'}
+              </Badge>
             </div>
-          </CardContent>
-        </Card>
-      )}
+
+            <CardContent className="p-5 space-y-4">
+              {/* Verdict */}
+              <div className={`rounded-xl p-4 border ${overallBad ? 'border-destructive/20 bg-destructive/5' : overallGood ? 'border-[hsl(153,100%,39%)]/20 bg-[hsl(153,100%,39%)]/5' : 'border-accent/20 bg-accent/5'}`}>
+                <p className="text-sm font-medium text-foreground leading-relaxed">
+                  {overallGood 
+                    ? `A ${empresa.razao_social.split(' ').slice(0, 3).join(' ')} apresenta um perfil sólido para operações de crédito. Com situação fiscal limpa, sem sanções e ${credito.score >= 60 ? 'bom score de crédito' : 'score aceitável'}, a empresa está bem posicionada para captação de recursos.`
+                    : overallBad
+                    ? `A ${empresa.razao_social.split(' ').slice(0, 3).join(' ')} apresenta pontos críticos que precisam ser endereçados antes de avançar em operações de crédito. Foram identificados ${riscos.length} risco(s) que podem impactar a elegibilidade da empresa.`
+                    : `A ${empresa.razao_social.split(' ').slice(0, 3).join(' ')} tem um perfil misto — possui pontos fortes relevantes, mas há aspectos que merecem atenção para otimizar o acesso a crédito e operações internacionais.`
+                  }
+                </p>
+              </div>
+
+              {/* Three columns */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Pontos Fortes */}
+                {pontosFortesArr.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-bold uppercase tracking-[0.15em] text-[hsl(153,100%,39%)] flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3 w-3" /> Pontos Fortes ({pontosFortesArr.length})
+                    </h4>
+                    <div className="space-y-1.5">
+                      {pontosFortesArr.map((p, i) => (
+                        <div key={i} className="text-[11px] text-foreground/80 p-2 rounded-lg border border-[hsl(153,100%,39%)]/15 bg-[hsl(153,100%,39%)]/5 leading-relaxed">
+                          ✅ {p}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Pontos de Atenção */}
+                {pontosAtencaoArr.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-bold uppercase tracking-[0.15em] text-primary flex items-center gap-1.5">
+                      <HelpCircle className="h-3 w-3" /> Atenção ({pontosAtencaoArr.length})
+                    </h4>
+                    <div className="space-y-1.5">
+                      {pontosAtencaoArr.map((p, i) => (
+                        <div key={i} className="text-[11px] text-foreground/80 p-2 rounded-lg border border-primary/15 bg-primary/5 leading-relaxed">
+                          ⚡ {p}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Riscos */}
+                {riscos.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-bold uppercase tracking-[0.15em] text-destructive flex items-center gap-1.5">
+                      <AlertTriangle className="h-3 w-3" /> Riscos ({riscos.length})
+                    </h4>
+                    <div className="space-y-1.5">
+                      {riscos.map((p, i) => (
+                        <div key={i} className="text-[11px] text-foreground/80 p-2 rounded-lg border border-destructive/15 bg-destructive/5 leading-relaxed">
+                          🚨 {p}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* KPI Strip */}
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-2 border-t border-border/30">
+                {[
+                  { icon: '🌐', label: 'Créd. Internac.', value: creditoIntData?.status === 'confirmado' ? 'Confirmado' : creditoIntData?.status === 'provavel' ? 'Provável' : creditoIntData?.status === 'possivel' ? 'Possível' : 'N/A', tab: 'credito' },
+                  { icon: '📊', label: 'Fat. Anual', value: fatAnual >= 1e9 ? `R$ ${(fatAnual/1e9).toFixed(1)}B` : fatAnual >= 1e6 ? `R$ ${(fatAnual/1e6).toFixed(0)}M` : fatAnual > 0 ? `R$ ${(fatAnual/1e3).toFixed(0)}K` : 'N/A', tab: 'financeiro' },
+                  { icon: '💰', label: 'Dívidas', value: totalDividas === 0 ? 'Nenhuma' : `${totalDividas} reg.`, tab: 'compliance' },
+                  { icon: '⚖️', label: 'Sanções', value: totalSancoes === 0 ? 'Regular' : `${totalSancoes} sanções`, tab: 'compliance' },
+                  { icon: '🛡️', label: 'Garantias', value: garantiasData?.estimativa?.capacidadeGarantia ? garantiasData.estimativa.capacidadeGarantia.charAt(0).toUpperCase() + garantiasData.estimativa.capacidadeGarantia.slice(1) : 'N/A', tab: 'garantias' },
+                  { icon: '🏦', label: 'Endividamento', value: endividamentoData?.nivel ? (endividamentoData.nivel === 'nenhum' ? 'Nenhum' : endividamentoData.nivel.charAt(0).toUpperCase() + endividamentoData.nivel.slice(1)) : 'N/A', tab: 'financeiro' },
+                ].map((kpi, i) => (
+                  <div key={i} className="rounded-lg border border-border/30 p-2.5 text-center bg-card/50 hover:bg-accent/10 cursor-pointer transition-colors" onClick={() => setActiveTab(kpi.tab)}>
+                    <span className="text-base">{kpi.icon}</span>
+                    <p className="text-[11px] font-bold mt-1 text-foreground">{kpi.value}</p>
+                    <p className="text-[9px] text-muted-foreground">{kpi.label}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* TABBED CONTENT */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
