@@ -256,6 +256,7 @@ export default function Empresas() {
   const [batchCnpjs, setBatchCnpjs] = useState<Set<string>>(new Set());
   const [batchAllContacts, setBatchAllContacts] = useState<{ cnpj: string; telefone: string | null; email: string | null; contato_nome: string | null; cargo: string | null; nome_empresa: string | null; dados_extras: any; score_potencial: number | null }[]>([]);
   const [batchViewMode, setBatchViewMode] = useState<'table' | 'cards'>('table');
+  const [filterAltaChance, setFilterAltaChance] = useState(false);
   const queueRef = useRef<string[]>([]);
   const fetchedRef = useRef<Set<string>>(new Set());
   const poolExhaustedRef = useRef(false);
@@ -300,7 +301,13 @@ export default function Empresas() {
       data.forEach((r: any) => { contacts.set(r.cnpj, r); cnpjs.add(r.cnpj); });
       setBatchContacts(contacts);
       setBatchCnpjs(cnpjs);
-      const sorted = [...data].sort((a, b) => (b.score_potencial || 0) - (a.score_potencial || 0));
+      // Calculate real scores for each contact using empresa data
+      const withScores = data.map((r: any) => {
+        const emp = empresas.find(e => e.cnpj === r.cnpj || e.cnpj.replace(/\D/g, "") === r.cnpj.replace(/\D/g, ""));
+        const realScore = emp ? calcularPotencialCreditoInternacional(emp).score : (r.score_potencial || 0);
+        return { ...r, _realScore: realScore };
+      });
+      const sorted = withScores.sort((a: any, b: any) => (b._realScore || 0) - (a._realScore || 0));
       setBatchAllContacts(sorted as any);
     }
   }, []);
@@ -402,6 +409,11 @@ export default function Empresas() {
       if (capitalMinNum > 0 && e.capital_social < capitalMinNum) return false;
       // Batch filter
       if (selectedBatch && !batchCnpjs.has(e.cnpj) && !batchCnpjs.has(e.cnpj.replace(/\D/g, ""))) return false;
+      // Alta chance filter
+      if (filterAltaChance) {
+        const sc = calcularPotencialCreditoInternacional(e).score;
+        if (sc < 60) return false;
+      }
       return true;
     });
 
@@ -415,7 +427,7 @@ export default function Empresas() {
     }
 
     return result;
-  }, [empresas, filterText, capitalMinNum, selectedBatch, batchCnpjs, sortByRanking]);
+  }, [empresas, filterText, capitalMinNum, selectedBatch, batchCnpjs, sortByRanking, filterAltaChance]);
 
   const formatCurrency = (val: number) =>
     val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -690,6 +702,15 @@ export default function Empresas() {
                       <TrendingUp className="h-3.5 w-3.5" />
                       {sortByRanking ? "🏆 Ranking" : "Ranking"}
                     </Button>
+                    <Button
+                      variant={filterAltaChance ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setFilterAltaChance(!filterAltaChance)}
+                      className={`gap-1.5 text-xs ${filterAltaChance ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
+                    >
+                      <Zap className="h-3.5 w-3.5" />
+                      {filterAltaChance ? "🔥 Só Alta Chance" : "Alta Chance"}
+                    </Button>
                   </div>
 
                   {/* TABLE VIEW */}
@@ -710,7 +731,12 @@ export default function Empresas() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {[...batchAllContacts].map((contact) => {
+                              {[...batchAllContacts].filter((contact) => {
+                                if (!filterAltaChance) return true;
+                                const emp = empresas.find(e => e.cnpj === contact.cnpj || e.cnpj.replace(/\D/g, "") === contact.cnpj.replace(/\D/g, ""));
+                                const sc = emp ? calcularPotencialCreditoInternacional(emp).score : ((contact as any)._realScore || 0);
+                                return sc >= 60;
+                              }).map((contact) => {
                                 const empresa = empresas.find(e => e.cnpj === contact.cnpj || e.cnpj.replace(/\D/g, "") === contact.cnpj.replace(/\D/g, ""));
                                 const score = empresa ? calcularPotencialCreditoInternacional(empresa) : null;
                                 const scoreVal = score?.score ?? contact.score_potencial ?? 0;
